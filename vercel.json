@@ -1,0 +1,13 @@
+{
+    "version": 2,
+    "buildCommand": "cd vercel-backend && npm install && npm run build",
+    "outputDirectory": "vercel-backend/.next",
+    "routes": [
+        { "src": "/api/(.*)", "dest": "/vercel-backend/pages/api/$1" },
+        { "src": "/(.*)", "dest": "/vercel-backend/pages/$1" }
+    ],
+    "github": {
+        "enabled": true,
+        "silent": false
+    }
+}
