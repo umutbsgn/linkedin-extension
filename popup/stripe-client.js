@@ -48,6 +48,10 @@ export async function createCheckoutSession(token) {
         // Generate base URL from configuration
         const baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
 
+        // Debug baseUrl
+        console.log('API_ENDPOINTS:', API_ENDPOINTS);
+        console.log('VERCEL_BACKEND_URL:', baseUrl);
+
         // Create a unique session tracking ID
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
