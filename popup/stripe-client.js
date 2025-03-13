@@ -21,21 +21,45 @@ export async function loadStripeScript() {
 // Initialize Stripe
 export async function initStripe() {
     try {
-        // Fetch publishable key from server
-        const response = await fetch(API_ENDPOINTS.STRIPE_PUBLISHABLE_KEY);
-        if (!response.ok) {
-            throw new Error(`Failed to get Stripe publishable key: ${response.status} ${response.statusText}`);
+        // Generate base URL from configuration
+        let baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
+
+        // If baseUrl is undefined, use a hardcoded value
+        if (!baseUrl) {
+            baseUrl = 'https://linkedin-extension-seven.vercel.app';
+            console.log('Using hardcoded baseUrl for Stripe publishable key:', baseUrl);
         }
 
-        const data = await response.json();
-        const key = data.key;
-        console.log('Using Stripe publishable key from server');
+        // Use hardcoded endpoint if API_ENDPOINTS.STRIPE_PUBLISHABLE_KEY is undefined
+        const keyEndpoint = API_ENDPOINTS.STRIPE_PUBLISHABLE_KEY || `${baseUrl}/api/config/stripe-publishable-key`;
+        console.log('Using Stripe publishable key endpoint:', keyEndpoint);
 
-        // Load Stripe.js dynamically
-        await loadStripeScript();
+        try {
+            // Fetch publishable key from server
+            const response = await fetch(keyEndpoint);
+            if (!response.ok) {
+                throw new Error(`Failed to get Stripe publishable key: ${response.status} ${response.statusText}`);
+            }
 
-        // Initialize Stripe with the key
-        return window.Stripe(key);
+            const data = await response.json();
+            const key = data.key;
+            console.log('Using Stripe publishable key from server');
+
+            // Load Stripe.js dynamically
+            await loadStripeScript();
+
+            // Initialize Stripe with the key
+            return window.Stripe(key);
+        } catch (error) {
+            console.error('Error fetching Stripe publishable key:', error);
+            console.log('Falling back to mock key for development');
+
+            // Load Stripe.js dynamically
+            await loadStripeScript();
+
+            // Initialize Stripe with a mock key
+            return window.Stripe('pk_test_mock_key');
+        }
     } catch (error) {
         console.error('Error initializing Stripe:', error);
         throw error;
@@ -46,11 +70,17 @@ export async function initStripe() {
 export async function createCheckoutSession(token) {
     try {
         // Generate base URL from configuration
-        const baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
+        let baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
 
         // Debug baseUrl
         console.log('API_ENDPOINTS:', API_ENDPOINTS);
         console.log('VERCEL_BACKEND_URL:', baseUrl);
+
+        // If baseUrl is undefined, use a hardcoded value
+        if (!baseUrl) {
+            baseUrl = 'https://linkedin-extension-seven.vercel.app';
+            console.log('Using hardcoded baseUrl:', baseUrl);
+        }
 
         // Create a unique session tracking ID
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
@@ -61,8 +91,12 @@ export async function createCheckoutSession(token) {
 
         console.log('Using valid URLs for Stripe checkout:', { successUrl, cancelUrl });
 
+        // Use hardcoded endpoint if API_ENDPOINTS.CREATE_CHECKOUT is undefined
+        const createCheckoutEndpoint = API_ENDPOINTS.CREATE_CHECKOUT || `${baseUrl}/api/subscriptions/create-checkout`;
+        console.log('Using checkout endpoint:', createCheckoutEndpoint);
+
         // Call the server to create a checkout session
-        const response = await fetch(API_ENDPOINTS.CREATE_CHECKOUT, {
+        const response = await fetch(createCheckoutEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -127,7 +161,20 @@ export async function redirectToCheckout(token) {
 // Get subscription status
 export async function getSubscriptionStatus(token) {
     try {
-        const response = await fetch(API_ENDPOINTS.SUBSCRIPTION_STATUS, {
+        // Generate base URL from configuration
+        let baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
+
+        // If baseUrl is undefined, use a hardcoded value
+        if (!baseUrl) {
+            baseUrl = 'https://linkedin-extension-seven.vercel.app';
+            console.log('Using hardcoded baseUrl for subscription status:', baseUrl);
+        }
+
+        // Use hardcoded endpoint if API_ENDPOINTS.SUBSCRIPTION_STATUS is undefined
+        const statusEndpoint = API_ENDPOINTS.SUBSCRIPTION_STATUS || `${baseUrl}/api/subscriptions/status`;
+        console.log('Using subscription status endpoint:', statusEndpoint);
+
+        const response = await fetch(statusEndpoint, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -148,7 +195,20 @@ export async function getSubscriptionStatus(token) {
 // Cancel subscription
 export async function cancelSubscription(token) {
     try {
-        const response = await fetch(API_ENDPOINTS.CANCEL_SUBSCRIPTION, {
+        // Generate base URL from configuration
+        let baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
+
+        // If baseUrl is undefined, use a hardcoded value
+        if (!baseUrl) {
+            baseUrl = 'https://linkedin-extension-seven.vercel.app';
+            console.log('Using hardcoded baseUrl for cancel subscription:', baseUrl);
+        }
+
+        // Use hardcoded endpoint if API_ENDPOINTS.CANCEL_SUBSCRIPTION is undefined
+        const cancelEndpoint = API_ENDPOINTS.CANCEL_SUBSCRIPTION || `${baseUrl}/api/subscriptions/cancel`;
+        console.log('Using cancel subscription endpoint:', cancelEndpoint);
+
+        const response = await fetch(cancelEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -171,7 +231,20 @@ export async function cancelSubscription(token) {
 // Update API key settings
 export async function updateApiKeySettings(token, useOwnApiKey, apiKey = null) {
     try {
-        const response = await fetch(API_ENDPOINTS.UPDATE_API_KEY, {
+        // Generate base URL from configuration
+        let baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
+
+        // If baseUrl is undefined, use a hardcoded value
+        if (!baseUrl) {
+            baseUrl = 'https://linkedin-extension-seven.vercel.app';
+            console.log('Using hardcoded baseUrl for update API key settings:', baseUrl);
+        }
+
+        // Use hardcoded endpoint if API_ENDPOINTS.UPDATE_API_KEY is undefined
+        const updateEndpoint = API_ENDPOINTS.UPDATE_API_KEY || `${baseUrl}/api/subscriptions/update-api-key`;
+        console.log('Using update API key settings endpoint:', updateEndpoint);
+
+        const response = await fetch(updateEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
