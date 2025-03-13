@@ -163,6 +163,30 @@ app.get('/api/config/stripe-price-id', (req, res) => {
     return res.status(200).json({ priceId: stripePriceId });
 });
 
+app.get('/api/config/stripe-secret-key', (req, res) => {
+    // Get the Stripe secret key from environment variables
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeSecretKey) {
+        return res.status(500).json({ error: 'Stripe secret key not configured' });
+    }
+
+    // Return the Stripe secret key
+    return res.status(200).json({ key: stripeSecretKey });
+});
+
+app.get('/api/config/stripe-webhook-secret', (req, res) => {
+    // Get the Stripe webhook secret from environment variables
+    const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!stripeWebhookSecret) {
+        return res.status(500).json({ error: 'Stripe webhook secret not configured' });
+    }
+
+    // Return the Stripe webhook secret
+    return res.status(200).json({ secret: stripeWebhookSecret });
+});
+
 // Stripe Subscription endpoints
 app.get('/api/subscriptions/status', async(req, res) => {
     // Get authorization token from header
