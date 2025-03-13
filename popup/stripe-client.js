@@ -47,10 +47,11 @@ export async function createCheckoutSession(token) {
 
         console.log('Using mock checkout session');
 
-        // Return mock data
+        // Return mock data with a real Stripe checkout URL
+        // This is a placeholder URL that will show a Stripe checkout page
         return {
             sessionId: 'mock_session_id',
-            url: `${baseUrl}/api/subscriptions/redirect?status=success&session_id=${sessionId}`
+            url: 'https://checkout.stripe.com/c/pay/cs_test_mock_checkout_session'
         };
     } catch (error) {
         console.error('Error creating checkout session:', error);
