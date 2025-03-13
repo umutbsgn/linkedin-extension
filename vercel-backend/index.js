@@ -195,14 +195,47 @@ app.get('/api/subscriptions/status', async(req, res) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // For now, return a mock subscription status
-    return res.status(200).json({
-        subscriptionType: 'trial',
-        hasActiveSubscription: false,
-        useOwnApiKey: false,
-        apiKey: null,
-        subscription: null
-    });
+    const token = authHeader.split(' ')[1];
+
+    try {
+        // Initialize Supabase
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase configuration missing');
+            return res.status(500).json({ error: 'Supabase configuration missing' });
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Verify token and get user
+        try {
+            const { data, error } = await supabase.auth.getUser(token);
+
+            if (error) {
+                console.error('Error verifying token:', error);
+                return res.status(401).json({ error: 'Invalid or expired token' });
+            }
+
+            const userId = data.user.id;
+
+            // For now, return a mock subscription status
+            return res.status(200).json({
+                subscriptionType: 'trial',
+                hasActiveSubscription: false,
+                useOwnApiKey: false,
+                apiKey: null,
+                subscription: null
+            });
+        } catch (error) {
+            console.error('Error verifying token:', error);
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+    } catch (error) {
+        console.error('Error in subscription status endpoint:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/subscriptions/create-checkout', async(req, res) => {
@@ -212,6 +245,8 @@ app.post('/api/subscriptions/create-checkout', async(req, res) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    const token = authHeader.split(' ')[1];
+
     // Get success and cancel URLs from request
     const { successUrl, cancelUrl } = req.body;
 
@@ -220,38 +255,65 @@ app.post('/api/subscriptions/create-checkout', async(req, res) => {
     }
 
     try {
-        // Get Stripe secret key from environment variables
-        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-        if (!stripeSecretKey) {
-            return res.status(500).json({ error: 'Stripe secret key not configured' });
+        // Initialize Supabase
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase configuration missing');
+            return res.status(500).json({ error: 'Supabase configuration missing' });
         }
 
-        // Get Stripe price ID from environment variables
-        const stripePriceId = process.env.STRIPE_PRO_PRICE_ID;
-        if (!stripePriceId) {
-            return res.status(500).json({ error: 'Stripe price ID not configured' });
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Verify token and get user
+        try {
+            const { data, error } = await supabase.auth.getUser(token);
+
+            if (error) {
+                console.error('Error verifying token:', error);
+                return res.status(401).json({ error: 'Invalid or expired token' });
+            }
+
+            const userId = data.user.id;
+
+            // Get Stripe secret key from environment variables
+            const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+            if (!stripeSecretKey) {
+                return res.status(500).json({ error: 'Stripe secret key not configured' });
+            }
+
+            // Get Stripe price ID from environment variables
+            const stripePriceId = process.env.STRIPE_PRO_PRICE_ID;
+            if (!stripePriceId) {
+                return res.status(500).json({ error: 'Stripe price ID not configured' });
+            }
+
+            // Initialize Stripe
+            const stripe = require('stripe')(stripeSecretKey);
+
+            // Create checkout session
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [{
+                    price: stripePriceId,
+                    quantity: 1,
+                }, ],
+                mode: 'subscription',
+                success_url: successUrl,
+                cancel_url: cancelUrl,
+                client_reference_id: userId, // Add user ID as reference
+            });
+
+            // Return the checkout session
+            return res.status(200).json({
+                sessionId: session.id,
+                url: session.url
+            });
+        } catch (error) {
+            console.error('Error verifying token:', error);
+            return res.status(401).json({ error: 'Invalid or expired token' });
         }
-
-        // Initialize Stripe
-        const stripe = require('stripe')(stripeSecretKey);
-
-        // Create checkout session
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [{
-                price: stripePriceId,
-                quantity: 1,
-            }, ],
-            mode: 'subscription',
-            success_url: successUrl,
-            cancel_url: cancelUrl,
-        });
-
-        // Return the checkout session
-        return res.status(200).json({
-            sessionId: session.id,
-            url: session.url
-        });
     } catch (error) {
         console.error('Error creating checkout session:', error);
         return res.status(500).json({ error: error.message });
@@ -265,16 +327,49 @@ app.post('/api/subscriptions/cancel', async(req, res) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // For now, return a mock response
-    return res.status(200).json({
-        success: true,
-        message: 'Subscription will be canceled at the end of the current billing period',
-        subscription: {
-            id: 'mock_subscription_id',
-            status: 'canceling',
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const token = authHeader.split(' ')[1];
+
+    try {
+        // Initialize Supabase
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase configuration missing');
+            return res.status(500).json({ error: 'Supabase configuration missing' });
         }
-    });
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Verify token and get user
+        try {
+            const { data, error } = await supabase.auth.getUser(token);
+
+            if (error) {
+                console.error('Error verifying token:', error);
+                return res.status(401).json({ error: 'Invalid or expired token' });
+            }
+
+            const userId = data.user.id;
+
+            // For now, return a mock response
+            return res.status(200).json({
+                success: true,
+                message: 'Subscription will be canceled at the end of the current billing period',
+                subscription: {
+                    id: 'mock_subscription_id',
+                    status: 'canceling',
+                    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                }
+            });
+        } catch (error) {
+            console.error('Error verifying token:', error);
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+    } catch (error) {
+        console.error('Error in cancel subscription endpoint:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/subscriptions/update-api-key', async(req, res) => {
@@ -283,6 +378,8 @@ app.post('/api/subscriptions/update-api-key', async(req, res) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
+
+    const token = authHeader.split(' ')[1];
 
     // Get API key settings from request
     const { useOwnApiKey, apiKey } = req.body;
@@ -296,15 +393,46 @@ app.post('/api/subscriptions/update-api-key', async(req, res) => {
         return res.status(400).json({ error: 'API key is required when useOwnApiKey is true' });
     }
 
-    // For now, return a mock response
-    return res.status(200).json({
-        success: true,
-        message: 'API key settings updated successfully',
-        settings: {
-            useOwnApiKey,
-            apiKey: useOwnApiKey ? apiKey : null
+    try {
+        // Initialize Supabase
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase configuration missing');
+            return res.status(500).json({ error: 'Supabase configuration missing' });
         }
-    });
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Verify token and get user
+        try {
+            const { data, error } = await supabase.auth.getUser(token);
+
+            if (error) {
+                console.error('Error verifying token:', error);
+                return res.status(401).json({ error: 'Invalid or expired token' });
+            }
+
+            const userId = data.user.id;
+
+            // For now, return a mock response
+            return res.status(200).json({
+                success: true,
+                message: 'API key settings updated successfully',
+                settings: {
+                    useOwnApiKey,
+                    apiKey: useOwnApiKey ? apiKey : null
+                }
+            });
+        } catch (error) {
+            console.error('Error verifying token:', error);
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+    } catch (error) {
+        console.error('Error in update API key endpoint:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.get('/api/subscriptions/redirect', (req, res) => {
