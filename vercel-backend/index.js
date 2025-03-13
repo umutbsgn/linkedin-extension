@@ -138,6 +138,297 @@ app.post('/api/analytics/track', async(req, res) => {
     res.status(200).json({ message: 'Analytics tracking endpoint' });
 });
 
+// Stripe Configuration endpoints
+app.get('/api/config/stripe-publishable-key', (req, res) => {
+    // Get the Stripe publishable key from environment variables
+    const stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+
+    if (!stripePublishableKey) {
+        return res.status(500).json({ error: 'Stripe publishable key not configured' });
+    }
+
+    // Return the Stripe publishable key
+    return res.status(200).json({ key: stripePublishableKey });
+});
+
+app.get('/api/config/stripe-price-id', (req, res) => {
+    // Get the Stripe price ID from environment variables
+    const stripePriceId = process.env.STRIPE_PRO_PRICE_ID;
+
+    if (!stripePriceId) {
+        return res.status(500).json({ error: 'Stripe price ID not configured' });
+    }
+
+    // Return the Stripe price ID
+    return res.status(200).json({ priceId: stripePriceId });
+});
+
+// Stripe Subscription endpoints
+app.get('/api/subscriptions/status', async(req, res) => {
+    // Get authorization token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // For now, return a mock subscription status
+    return res.status(200).json({
+        subscriptionType: 'trial',
+        hasActiveSubscription: false,
+        useOwnApiKey: false,
+        apiKey: null,
+        subscription: null
+    });
+});
+
+app.post('/api/subscriptions/create-checkout', async(req, res) => {
+    // Get authorization token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get success and cancel URLs from request
+    const { successUrl, cancelUrl } = req.body;
+
+    if (!successUrl || !cancelUrl) {
+        return res.status(400).json({ error: 'Success and cancel URLs are required' });
+    }
+
+    // For now, return a mock checkout session
+    return res.status(200).json({
+        sessionId: 'mock_session_id',
+        url: 'https://example.com/checkout'
+    });
+});
+
+app.post('/api/subscriptions/cancel', async(req, res) => {
+    // Get authorization token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // For now, return a mock response
+    return res.status(200).json({
+        success: true,
+        message: 'Subscription will be canceled at the end of the current billing period',
+        subscription: {
+            id: 'mock_subscription_id',
+            status: 'canceling',
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        }
+    });
+});
+
+app.post('/api/subscriptions/update-api-key', async(req, res) => {
+    // Get authorization token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get API key settings from request
+    const { useOwnApiKey, apiKey } = req.body;
+
+    if (typeof useOwnApiKey !== 'boolean') {
+        return res.status(400).json({ error: 'useOwnApiKey must be a boolean' });
+    }
+
+    // If using own API key, validate it
+    if (useOwnApiKey && (!apiKey || typeof apiKey !== 'string')) {
+        return res.status(400).json({ error: 'API key is required when useOwnApiKey is true' });
+    }
+
+    // For now, return a mock response
+    return res.status(200).json({
+        success: true,
+        message: 'API key settings updated successfully',
+        settings: {
+            useOwnApiKey,
+            apiKey: useOwnApiKey ? apiKey : null
+        }
+    });
+});
+
+app.get('/api/subscriptions/redirect', (req, res) => {
+    // Get status and session ID from query parameters
+    const { status, session_id } = req.query;
+
+    // Create HTML response based on status
+    let html;
+
+    if (status === 'success') {
+        html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Subscription Successful</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                        text-align: center;
+                        line-height: 1.6;
+                    }
+                    h1 {
+                        color: #4CAF50;
+                        margin-bottom: 20px;
+                    }
+                    p {
+                        margin-bottom: 20px;
+                    }
+                    .icon {
+                        font-size: 64px;
+                        margin-bottom: 20px;
+                    }
+                    .close-button {
+                        display: inline-block;
+                        background-color: #4CAF50;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        text-decoration: none;
+                        margin-top: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="icon">✅</div>
+                <h1>Subscription Successful!</h1>
+                <p>Thank you for subscribing to the Pro plan. Your subscription is now active.</p>
+                <p>You can now return to the extension and enjoy all the Pro features.</p>
+                <p><small>Session ID: ${session_id}</small></p>
+                <a href="#" class="close-button" onclick="window.close()">Close this window</a>
+                <script>
+                    // Close window automatically after 5 seconds
+                    setTimeout(() => {
+                        window.close();
+                    }, 5000);
+                </script>
+            </body>
+            </html>
+        `;
+    } else if (status === 'canceled') {
+        html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Subscription Canceled</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                        text-align: center;
+                        line-height: 1.6;
+                    }
+                    h1 {
+                        color: #F44336;
+                        margin-bottom: 20px;
+                    }
+                    p {
+                        margin-bottom: 20px;
+                    }
+                    .icon {
+                        font-size: 64px;
+                        margin-bottom: 20px;
+                    }
+                    .close-button {
+                        display: inline-block;
+                        background-color: #F44336;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        text-decoration: none;
+                        margin-top: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="icon">❌</div>
+                <h1>Subscription Canceled</h1>
+                <p>You have canceled the subscription process. No charges have been made.</p>
+                <p>You can still use the extension with the trial features.</p>
+                <p><small>Session ID: ${session_id}</small></p>
+                <a href="#" class="close-button" onclick="window.close()">Close this window</a>
+                <script>
+                    // Close window automatically after 5 seconds
+                    setTimeout(() => {
+                        window.close();
+                    }, 5000);
+                </script>
+            </body>
+            </html>
+        `;
+    } else {
+        html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Invalid Status</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                        text-align: center;
+                        line-height: 1.6;
+                    }
+                    h1 {
+                        color: #FF9800;
+                        margin-bottom: 20px;
+                    }
+                    p {
+                        margin-bottom: 20px;
+                    }
+                    .icon {
+                        font-size: 64px;
+                        margin-bottom: 20px;
+                    }
+                    .close-button {
+                        display: inline-block;
+                        background-color: #FF9800;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        text-decoration: none;
+                        margin-top: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="icon">⚠️</div>
+                <h1>Invalid Status</h1>
+                <p>An invalid status was provided. Please return to the extension.</p>
+                <p><small>Status: ${status || 'none'}, Session ID: ${session_id || 'none'}</small></p>
+                <a href="#" class="close-button" onclick="window.close()">Close this window</a>
+                <script>
+                    // Close window automatically after 5 seconds
+                    setTimeout(() => {
+                        window.close();
+                    }, 5000);
+                </script>
+            </body>
+            </html>
+        `;
+    }
+
+    // Set content type and send HTML response
+    res.setHeader('Content-Type', 'text/html');
+    res.status(200).send(html);
+});
+
 // Default route for the main page
 app.get('/', (req, res) => {
     res.send(`
