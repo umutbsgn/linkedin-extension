@@ -40,7 +40,7 @@ export default async function handler(req, res) {
                 "x-api-key": apiKey,
                 "anthropic-version": "2023-06-01",
                 "content-type": "application/json"
-                // No need for "anthropic-dangerous-direct-browser-access" header on server
+                    // No need for "anthropic-dangerous-direct-browser-access" header on server
             },
             body: JSON.stringify({
                 model: "claude-3-5-sonnet-20241022",
@@ -57,6 +57,14 @@ export default async function handler(req, res) {
             const errorData = await response.json().catch(() => ({}));
             const errorMessage = errorData.error && errorData.error.message || response.statusText;
             console.error(`Anthropic API error: ${response.status} - ${errorMessage}`);
+
+            // Special handling for 529 Overloaded errors
+            if (response.status === 529) {
+                return res.status(503).json({
+                    error: "The AI service is currently experiencing high demand. Please try again in a few moments."
+                });
+            }
+
             return res.status(response.status).json({
                 error: `API call failed: ${response.status} - ${errorMessage}`
             });

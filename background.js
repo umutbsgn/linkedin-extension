@@ -113,6 +113,11 @@ async function callAnthropicAPI(prompt, systemPrompt) {
                 response_time_ms: responseTime
             });
 
+            // Special handling for 503 Service Unavailable (which may be due to Anthropic 529 Overloaded)
+            if (response.status === 503 && errorMessage.includes("high demand")) {
+                throw new Error("The AI service is currently experiencing high demand. Please try again in a few moments.");
+            }
+
             throw new Error(`API call failed: ${response.status} - ${errorMessage}`);
         }
 
