@@ -1,63 +1,51 @@
 // Utility functions for subscription endpoints
 import { createClient } from '@supabase/supabase-js';
 
-// Get Stripe secret key from the server
+// Get Stripe secret key directly from environment variables
 export async function getStripeSecretKey() {
     try {
-        const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/config/stripe-secret-key`, {
-            headers: {
-                'Host': process.env.VERCEL_URL ? `${process.env.VERCEL_URL}` : 'localhost:3000'
-            }
-        });
+        // Get the key directly from environment variables
+        const key = process.env.STRIPE_SECRET_KEY;
 
-        if (!response.ok) {
-            throw new Error(`Failed to get Stripe secret key: ${response.status} ${response.statusText}`);
+        if (!key) {
+            throw new Error('Stripe secret key not configured in environment variables');
         }
 
-        const data = await response.json();
-        return data.key;
+        return key;
     } catch (error) {
         console.error('Error getting Stripe secret key:', error);
         throw error;
     }
 }
 
-// Get Stripe price ID from the server
+// Get Stripe price ID directly from environment variables
 export async function getStripePriceId() {
     try {
-        const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/config/stripe-price-id`, {
-            headers: {
-                'Host': process.env.VERCEL_URL ? `${process.env.VERCEL_URL}` : 'localhost:3000'
-            }
-        });
+        // Get the price ID directly from environment variables
+        const priceId = process.env.STRIPE_PRO_PRICE_ID;
 
-        if (!response.ok) {
-            throw new Error(`Failed to get Stripe price ID: ${response.status} ${response.statusText}`);
+        if (!priceId) {
+            throw new Error('Stripe price ID not configured in environment variables');
         }
 
-        const data = await response.json();
-        return data.priceId;
+        return priceId;
     } catch (error) {
         console.error('Error getting Stripe price ID:', error);
         throw error;
     }
 }
 
-// Get Stripe webhook secret from the server
+// Get Stripe webhook secret directly from environment variables
 export async function getStripeWebhookSecret() {
     try {
-        const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/config/stripe-webhook-secret`, {
-            headers: {
-                'Host': process.env.VERCEL_URL ? `${process.env.VERCEL_URL}` : 'localhost:3000'
-            }
-        });
+        // Get the webhook secret directly from environment variables
+        const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
-        if (!response.ok) {
-            throw new Error(`Failed to get Stripe webhook secret: ${response.status} ${response.statusText}`);
+        if (!secret) {
+            throw new Error('Stripe webhook secret not configured in environment variables');
         }
 
-        const data = await response.json();
-        return data.secret;
+        return secret;
     } catch (error) {
         console.error('Error getting Stripe webhook secret:', error);
         throw error;
