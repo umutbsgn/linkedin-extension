@@ -21,25 +21,15 @@ export async function loadStripeScript() {
 // Initialize Stripe
 export async function initStripe() {
     try {
-        let key;
-
-        try {
-            // Fetch publishable key from server
-            const response = await fetch(API_ENDPOINTS.STRIPE_PUBLISHABLE_KEY);
-            if (!response.ok) {
-                throw new Error(`Failed to get Stripe publishable key: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            key = data.key;
-            console.log('Using Stripe publishable key from server');
-        } catch (error) {
-            console.error('Error fetching Stripe publishable key:', error);
-
-            // Fallback to mock key for development
-            console.log('Falling back to mock key for development');
-            key = 'pk_test_mock_key';
+        // Fetch publishable key from server
+        const response = await fetch(API_ENDPOINTS.STRIPE_PUBLISHABLE_KEY);
+        if (!response.ok) {
+            throw new Error(`Failed to get Stripe publishable key: ${response.status} ${response.statusText}`);
         }
+
+        const data = await response.json();
+        const key = data.key;
+        console.log('Using Stripe publishable key from server');
 
         // Load Stripe.js dynamically
         await loadStripeScript();
@@ -67,49 +57,34 @@ export async function createCheckoutSession(token) {
 
         console.log('Using valid URLs for Stripe checkout:', { successUrl, cancelUrl });
 
-        try {
-            // Call the server to create a checkout session
-            const response = await fetch(API_ENDPOINTS.CREATE_CHECKOUT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    successUrl: successUrl,
-                    cancelUrl: cancelUrl
-                })
-            });
+        // Call the server to create a checkout session
+        const response = await fetch(API_ENDPOINTS.CREATE_CHECKOUT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                successUrl: successUrl,
+                cancelUrl: cancelUrl
+            })
+        });
 
-            // Check if the response is JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.error('Non-JSON response received from create-checkout endpoint:');
-                const text = await response.text();
-                console.error(text);
-                throw new Error('Invalid response format from server. Please check server logs.');
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to create checkout session: ${response.status} ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error creating checkout session with server:', error);
-            console.log('Falling back to mock checkout session');
-
-            // Use chrome.runtime.getURL to get the URL to the mock checkout page
-            const mockCheckoutUrl = chrome.runtime.getURL('mock-checkout.html');
-            console.log('Mock checkout URL:', mockCheckoutUrl);
-
-            // Use the local mock checkout page with success URL as a parameter
-            return {
-                sessionId: 'mock_session_id',
-                url: `${mockCheckoutUrl}?success_url=${encodeURIComponent(successUrl)}`
-            };
+        // Check if the response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Non-JSON response received from create-checkout endpoint:');
+            const text = await response.text();
+            console.error(text);
+            throw new Error('Invalid response format from server. Please check server logs.');
         }
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to create checkout session: ${response.status} ${response.statusText}`);
+        }
+
+        return await response.json();
     } catch (error) {
         console.error('Error creating checkout session:', error);
         throw error;
@@ -148,32 +123,18 @@ export async function redirectToCheckout(token) {
 // Get subscription status
 export async function getSubscriptionStatus(token) {
     try {
-        try {
-            const response = await fetch(API_ENDPOINTS.SUBSCRIPTION_STATUS, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to get subscription status: ${response.status} ${response.statusText}`);
+        const response = await fetch(API_ENDPOINTS.SUBSCRIPTION_STATUS, {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
+        });
 
-            return await response.json();
-        } catch (error) {
-            console.error('Error getting subscription status from server:', error);
-            console.log('Falling back to mock subscription status');
-
-            // Return default trial status on error
-            return {
-                subscriptionType: 'trial',
-                hasActiveSubscription: false,
-                useOwnApiKey: false,
-                apiKey: null,
-                subscription: null
-            };
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to get subscription status: ${response.status} ${response.statusText}`);
         }
+
+        return await response.json();
     } catch (error) {
         console.error('Error getting subscription status:', error);
         throw error;
@@ -183,36 +144,20 @@ export async function getSubscriptionStatus(token) {
 // Cancel subscription
 export async function cancelSubscription(token) {
     try {
-        try {
-            const response = await fetch(API_ENDPOINTS.CANCEL_SUBSCRIPTION, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to cancel subscription: ${response.status} ${response.statusText}`);
+        const response = await fetch(API_ENDPOINTS.CANCEL_SUBSCRIPTION, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             }
+        });
 
-            return await response.json();
-        } catch (error) {
-            console.error('Error canceling subscription with server:', error);
-            console.log('Falling back to mock cancel subscription');
-
-            // Return mock data
-            return {
-                success: true,
-                message: 'Subscription will be canceled at the end of the current billing period',
-                subscription: {
-                    id: 'mock_subscription_id',
-                    status: 'canceling',
-                    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-                }
-            };
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to cancel subscription: ${response.status} ${response.statusText}`);
         }
+
+        return await response.json();
     } catch (error) {
         console.error('Error canceling subscription:', error);
         throw error;
@@ -222,39 +167,24 @@ export async function cancelSubscription(token) {
 // Update API key settings
 export async function updateApiKeySettings(token, useOwnApiKey, apiKey = null) {
     try {
-        try {
-            const response = await fetch(API_ENDPOINTS.UPDATE_API_KEY, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    useOwnApiKey,
-                    apiKey: useOwnApiKey ? apiKey : null
-                })
-            });
+        const response = await fetch(API_ENDPOINTS.UPDATE_API_KEY, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                useOwnApiKey,
+                apiKey: useOwnApiKey ? apiKey : null
+            })
+        });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to update API key settings: ${response.status} ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error updating API key settings with server:', error);
-            console.log('Falling back to mock API key settings update');
-
-            // Return mock data
-            return {
-                success: true,
-                message: 'API key settings updated successfully',
-                settings: {
-                    useOwnApiKey,
-                    apiKey: useOwnApiKey ? apiKey : null
-                }
-            };
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to update API key settings: ${response.status} ${response.statusText}`);
         }
+
+        return await response.json();
     } catch (error) {
         console.error('Error updating API key settings:', error);
         throw error;
