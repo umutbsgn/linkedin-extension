@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test LinkedIn Extension API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background-color: #0077b5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #response {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        
+        .loading {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Test LinkedIn Extension API</h1>
+    <p>This page tests the connection to the Vercel backend API.</p>
+
+    <h2>Test Healthcheck</h2>
+    <button id="testHealthcheck">Test Healthcheck Endpoint</button>
+    <div class="loading" id="healthcheckLoading">Loading...</div>
+    <div id="healthcheckResponse" class="response"></div>
+
+    <h2>Test Anthropic API</h2>
+    <textarea id="prompt" placeholder="Enter your prompt here...">Hello, how are you today?</textarea>
+    <textarea id="systemPrompt" placeholder="Enter system prompt (optional)">You are a helpful assistant.</textarea>
+    <button id="testAnalyze">Test Analyze Endpoint</button>
+    <div class="loading" id="analyzeLoading">Loading...</div>
+    <div id="analyzeResponse" class="response"></div>
+
+    <script>
+        // Configuration
+        const VERCEL_BACKEND_URL = 'https://linkedin-extension-seven.vercel.app';
+        const API_ENDPOINTS = {
+            HEALTHCHECK: `${VERCEL_BACKEND_URL}/api/healthcheck`,
+            ANALYZE: `${VERCEL_BACKEND_URL}/api/anthropic/analyze`
+        };
+
+        // Test Healthcheck
+        document.getElementById('testHealthcheck').addEventListener('click', async() => {
+            const loadingEl = document.getElementById('healthcheckLoading');
+            const responseEl = document.getElementById('healthcheckResponse');
+
+            loadingEl.style.display = 'block';
+            responseEl.textContent = '';
+
+            try {
+                const response = await fetch(API_ENDPOINTS.HEALTHCHECK);
+                const data = await response.json();
+
+                responseEl.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseEl.textContent = `Error: ${error.message}`;
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        });
+
+        // Test Analyze
+        document.getElementById('testAnalyze').addEventListener('click', async() => {
+            const promptEl = document.getElementById('prompt');
+            const systemPromptEl = document.getElementById('systemPrompt');
+            const loadingEl = document.getElementById('analyzeLoading');
+            const responseEl = document.getElementById('analyzeResponse');
+
+            loadingEl.style.display = 'block';
+            responseEl.textContent = '';
+
+            try {
+                const response = await fetch(API_ENDPOINTS.ANALYZE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: promptEl.value,
+                        systemPrompt: systemPromptEl.value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    responseEl.textContent = `Error: ${data.error}`;
+                } else {
+                    responseEl.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseEl.textContent = `Error: ${error.message}`;
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vercel Connection Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .info-box {
+            background-color: #f5f5f5;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        button:hover {
+            background-color: #0b7dda;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        #troubleshooting {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Vercel Connection Checker</h1>
+
+    <div class="info-box">
+        <p><strong>Current Vercel Backend URL:</strong> <span id="backend-url"></span></p>
+        <p><strong>Healthcheck Endpoint:</strong> <span id="healthcheck-url"></span></p>
+    </div>
+
+    <button id="check-connection">Check Connection</button>
+
+    <div id="success-message" class="success">
+        <h3>✅ Connection Successful!</h3>
+        <p>The Vercel backend is accessible and responding correctly.</p>
+        <h4>Response:</h4>
+        <pre id="response-data"></pre>
+    </div>
+
+    <div id="error-message" class="error">
+        <h3>❌ Connection Failed!</h3>
+        <p>Could not connect to the Vercel backend.</p>
+        <p><strong>Error:</strong> <span id="error-details"></span></p>
+        <button id="show-troubleshooting">Show Troubleshooting Steps</button>
+    </div>
+
+    <div id="troubleshooting">
+        <h3>Troubleshooting Steps</h3>
+        <ol>
+            <li>Verify that the Vercel deployment exists and is running</li>
+            <li>Check that the URL in config.js is correct</li>
+            <li>Ensure your network connection is working</li>
+            <li>Check if CORS is properly configured on the Vercel backend</li>
+            <li>Verify that the API endpoint is properly implemented</li>
+            <li>Check the Vercel deployment logs for errors</li>
+        </ol>
+    </div>
+
+    <script type="module">
+        import { VERCEL_BACKEND_URL } from './config.js'; import checkVercelConnection from './check-vercel-connection.js'; document.addEventListener('DOMContentLoaded', () => { // Display the URLs document.getElementById('backend-url').textContent = VERCEL_BACKEND_URL;
+        document.getElementById('healthcheck-url').textContent = `${VERCEL_BACKEND_URL}/api/healthcheck`; // Set up the check connection button document.getElementById('check-connection').addEventListener('click', async () => { // Reset display document.getElementById('success-message').style.display
+        = 'none'; document.getElementById('error-message').style.display = 'none'; document.getElementById('troubleshooting').style.display = 'none'; try { // Try to connect to the healthcheck endpoint const healthcheckUrl = `${VERCEL_BACKEND_URL}/api/healthcheck`;
+        console.log(`Connecting to: ${healthcheckUrl}`); const response = await fetch(healthcheckUrl); if (response.ok) { const data = await response.json(); console.log('✅ Connection successful!'); console.log('Response:', data); // Display success message
+        document.getElementById('response-data').textContent = JSON.stringify(data, null, 2); document.getElementById('success-message').style.display = 'block'; } else { console.error('❌ Server responded with error:', response.status, response.statusText);
+        // Display error message document.getElementById('error-details').textContent = `Server responded with error: ${response.status} ${response.statusText}`; document.getElementById('error-message').style.display = 'block'; } } catch (error) { console.error('❌
+        Connection failed!'); console.error('Error details:', error.message); // Display error message document.getElementById('error-details').textContent = error.message; document.getElementById('error-message').style.display = 'block'; } }); // Set
+        up the show troubleshooting button document.getElementById('show-troubleshooting').addEventListener('click', () => { document.getElementById('troubleshooting').style.display = 'block'; }); });
+    </script>
+</body>
+
+</html>

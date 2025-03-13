@@ -1,5 +1,6 @@
 import { createClient } from './supabase-client.js';
 import { checkBetaAccess } from './beta-validator.js';
+import { createSubscriptionManager } from './subscription-manager.js';
 import {
     initAnalytics,
     trackEvent,
@@ -93,8 +94,11 @@ document.addEventListener('DOMContentLoaded', async() => {
     const signOutButton = document.getElementById('signOutButton');
     const postsTab = document.getElementById('postsTab');
     const connectTab = document.getElementById('connectTab');
+    const subscriptionTab = document.getElementById('subscriptionTab');
     const postsContent = document.getElementById('postsContent');
     const connectContent = document.getElementById('connectContent');
+    const subscriptionContent = document.getElementById('subscriptionContent');
+    const subscriptionContainer = document.getElementById('subscriptionContainer');
 
     const DEFAULT_SYSTEM_PROMPT = `You are a flexible LinkedIn communication partner. Your task is to analyze the author's style, respond accordingly, and provide casual value. Your response should be concise, maximum 120 characters, and written directly in the author's style.`;
     const DEFAULT_CONNECT_SYSTEM_PROMPT = `You are a LinkedIn connection request assistant. Your task is to analyze the recipient's profile and craft a personalized, concise connection message. Keep it friendly, professional, and highlight a shared interest or mutual benefit. Maximum 160 characters.`;
@@ -120,19 +124,49 @@ document.addEventListener('DOMContentLoaded', async() => {
         saveUserSettings();
     }
 
-    function switchTab(tab) {
-        const previousTab = postsTab.classList.contains('active') ? 'posts' : 'connect';
+    // Initialize subscription manager
+    let subscriptionManager = null;
 
+    // Add event listener for subscription tab
+    subscriptionTab.addEventListener('click', () => switchTab('subscription'));
+
+    function switchTab(tab) {
+        // Determine previous tab
+        let previousTab = 'posts';
+        if (connectTab.classList.contains('active')) {
+            previousTab = 'connect';
+        } else if (subscriptionTab.classList.contains('active')) {
+            previousTab = 'subscription';
+        }
+
+        // Reset all tabs
+        postsTab.classList.remove('active');
+        connectTab.classList.remove('active');
+        subscriptionTab.classList.remove('active');
+        postsContent.classList.remove('active');
+        connectContent.classList.remove('active');
+        subscriptionContent.classList.remove('active');
+
+        // Activate selected tab
         if (tab === 'posts') {
             postsTab.classList.add('active');
-            connectTab.classList.remove('active');
             postsContent.classList.add('active');
-            connectContent.classList.remove('active');
-        } else {
-            postsTab.classList.remove('active');
+        } else if (tab === 'connect') {
             connectTab.classList.add('active');
-            postsContent.classList.remove('active');
             connectContent.classList.add('active');
+        } else if (tab === 'subscription') {
+            subscriptionTab.classList.add('active');
+            subscriptionContent.classList.add('active');
+
+            // Initialize subscription manager if not already done
+            if (!subscriptionManager) {
+                subscriptionManager = createSubscriptionManager(
+                    subscriptionContainer,
+                    supabase,
+                    showStatus
+                );
+                subscriptionManager.loadSubscriptionStatus();
+            }
         }
 
         // Track tab change

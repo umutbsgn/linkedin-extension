@@ -37,3 +37,4 @@ $RECYCLE.BIN/
 .vscode/
 *.sublime-project
 *.sublime-workspace
+.vercel
