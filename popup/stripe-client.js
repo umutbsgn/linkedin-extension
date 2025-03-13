@@ -100,14 +100,14 @@ export async function createCheckoutSession(token) {
             console.error('Error creating checkout session with server:', error);
             console.log('Falling back to mock checkout session');
 
-            // Get the current URL to determine the base path for the mock checkout page
-            const currentUrl = window.location.href;
-            const basePath = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
+            // Use chrome.runtime.getURL to get the URL to the mock checkout page
+            const mockCheckoutUrl = chrome.runtime.getURL('mock-checkout.html');
+            console.log('Mock checkout URL:', mockCheckoutUrl);
 
             // Use the local mock checkout page with success URL as a parameter
             return {
                 sessionId: 'mock_session_id',
-                url: `${basePath}/mock-checkout.html?success_url=${encodeURIComponent(successUrl)}`
+                url: `${mockCheckoutUrl}?success_url=${encodeURIComponent(successUrl)}`
             };
         }
     } catch (error) {
