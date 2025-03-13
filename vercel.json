@@ -1,11 +1,16 @@
 {
     "version": 2,
     "builds": [
-        { "src": "vercel-backend/index.js", "use": "@vercel/node" }
+        { "src": "vercel-backend/pages/**/*.js", "use": "@vercel/node" }
     ],
     "routes": [
-        { "src": "/api/(.*)", "dest": "/vercel-backend/index.js" },
-        { "src": "/(.*)", "dest": "/vercel-backend/index.js" }
+        { "src": "/api/config/(.*)", "dest": "/vercel-backend/pages/api/config/$1" },
+        { "src": "/api/subscriptions/(.*)", "dest": "/vercel-backend/pages/api/subscriptions/$1" },
+        { "src": "/api/anthropic/(.*)", "dest": "/vercel-backend/pages/api/anthropic/$1" },
+        { "src": "/api/supabase/(.*)", "dest": "/vercel-backend/pages/api/supabase/$1" },
+        { "src": "/api/analytics/(.*)", "dest": "/vercel-backend/pages/api/analytics/$1" },
+        { "src": "/api/healthcheck", "dest": "/vercel-backend/pages/api/healthcheck.js" },
+        { "src": "/(.*)", "dest": "/vercel-backend/pages/index.js" }
     ],
     "github": {
         "enabled": true,
