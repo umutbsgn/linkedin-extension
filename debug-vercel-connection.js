@@ -1,5 +1,13 @@
 import { VERCEL_BACKEND_URL, API_ENDPOINTS } from './config.js';
 
+// Alternative URLs to test
+const ALTERNATIVE_URLS = [
+    'https://linkedin-extension-n9d5xt6am-umutbsgns-projects.vercel.app',
+    'https://linkedin-extension-git-master-umutbsgns-projects.vercel.app',
+    'https://linkedin-extension-jfjwq3vf9-umutbsgns-projects.vercel.app',
+    'https://linkedin-extension.vercel.app'
+];
+
 // Test the healthcheck endpoint
 async function testHealthcheck() {
     console.log('=== Testing Healthcheck Endpoint ===');
@@ -86,13 +94,115 @@ async function testVercelDeployment() {
     console.log('VERCEL_BACKEND_URL:', VERCEL_BACKEND_URL);
     console.log('API_ENDPOINTS.ANALYZE:', API_ENDPOINTS.ANALYZE);
 
-    // Test if the URL is accessible
+    // Test if the primary URL is accessible
     try {
         const response = await fetch(VERCEL_BACKEND_URL);
-        console.log('Main URL status:', response.status, response.statusText);
+        console.log('Primary URL status:', response.status, response.statusText);
     } catch (error) {
-        console.error('❌ Failed to connect to main URL!');
+        console.error('❌ Failed to connect to primary URL!');
         console.error('Error details:', error.message);
+    }
+
+    // Test all alternative URLs
+    for (let i = 0; i < ALTERNATIVE_URLS.length; i++) {
+        const url = ALTERNATIVE_URLS[i];
+        console.log(`Alternative URL ${i+1}:`, url);
+
+        try {
+            const response = await fetch(url);
+            console.log(`Alternative URL ${i+1} status:`, response.status, response.statusText);
+        } catch (error) {
+            console.error(`❌ Failed to connect to alternative URL ${i+1}!`);
+            console.error('Error details:', error.message);
+        }
+    }
+
+    console.log('\n');
+}
+
+// Test the alternative healthcheck endpoints
+async function testAlternativeHealthcheck() {
+    console.log('=== Testing Alternative Healthcheck Endpoints ===');
+
+    for (let i = 0; i < ALTERNATIVE_URLS.length; i++) {
+        const url = ALTERNATIVE_URLS[i];
+        console.log(`\nTesting Alternative URL ${i+1}: ${url}/api/healthcheck`);
+
+        try {
+            const response = await fetch(`${url}/api/healthcheck`);
+
+            console.log('Status:', response.status, response.statusText);
+            console.log('Headers:', response.headers);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Response data:', data);
+                console.log(`✅ Alternative healthcheck endpoint ${i+1} is working!`);
+            } else {
+                console.error(`❌ Alternative healthcheck endpoint ${i+1} returned an error!`);
+                try {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText.substring(0, 200) + '...');
+                } catch (e) {
+                    console.error('Could not read error response');
+                }
+            }
+        } catch (error) {
+            console.error(`❌ Failed to connect to alternative healthcheck endpoint ${i+1}!`);
+            console.error('Error details:', error.message);
+        }
+    }
+
+    console.log('\n');
+}
+
+// Test the alternative analyze endpoints
+async function testAlternativeAnalyzeEndpoint() {
+    console.log('=== Testing Alternative Analyze Endpoints ===');
+
+    const testPrompt = "Hello, this is a test prompt.";
+    const testSystemPrompt = "You are a helpful assistant.";
+
+    console.log('Test prompt:', testPrompt);
+    console.log('Test system prompt:', testSystemPrompt);
+
+    for (let i = 0; i < ALTERNATIVE_URLS.length; i++) {
+        const url = ALTERNATIVE_URLS[i];
+        const alternativeAnalyzeUrl = `${url}/api/anthropic/analyze`;
+        console.log(`\nTesting Alternative URL ${i+1}: ${alternativeAnalyzeUrl}`);
+
+        try {
+            const response = await fetch(alternativeAnalyzeUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    text: testPrompt,
+                    systemPrompt: testSystemPrompt
+                })
+            });
+
+            console.log('Status:', response.status, response.statusText);
+            console.log('Headers:', response.headers);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Response data:', data);
+                console.log(`✅ Alternative analyze endpoint ${i+1} is working!`);
+            } else {
+                console.error(`❌ Alternative analyze endpoint ${i+1} returned an error!`);
+                try {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText.substring(0, 200) + '...');
+                } catch (e) {
+                    console.error('Could not read error response');
+                }
+            }
+        } catch (error) {
+            console.error(`❌ Failed to connect to alternative analyze endpoint ${i+1}!`);
+            console.error('Error details:', error.message);
+        }
     }
 
     console.log('\n');
@@ -107,6 +217,8 @@ async function runTests() {
     await testVercelDeployment();
     await testHealthcheck();
     await testAnalyzeEndpoint();
+    await testAlternativeHealthcheck();
+    await testAlternativeAnalyzeEndpoint();
 
     console.log('=== Tests Completed ===');
 }
@@ -119,5 +231,7 @@ export {
     testHealthcheck,
     testAnalyzeEndpoint,
     testVercelDeployment,
+    testAlternativeHealthcheck,
+    testAlternativeAnalyzeEndpoint,
     runTests
 };
