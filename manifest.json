@@ -47,7 +47,8 @@
             "icons/icon-48-yellow.png",
             "icons/icon-48-green.png",
             "popup/beta-validator-injector.js",
-            "lib/posthog/posthog.js"
+            "lib/posthog/posthog.js",
+            "mock-checkout.html"
         ],
         "matches": ["https://*.linkedin.com/*"]
     }],
