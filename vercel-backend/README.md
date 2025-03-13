@@ -1,75 +1,76 @@
-# LinkedIn AI Assistant API Proxy
+# LinkedIn AI Assistant Vercel Backend
 
-This is a secure API proxy for the LinkedIn AI Assistant browser extension. It handles API calls to Anthropic, Supabase, and PostHog, keeping API keys secure on the server side.
+This is the Vercel backend for the LinkedIn AI Assistant browser extension. It provides secure API endpoints for the extension to communicate with external services like Anthropic, Supabase, and PostHog.
 
-## Features
+## Setup
 
-- Secure API key storage using environment variables
-- CORS handling for browser extension requests
-- Proxy endpoints for:
-  - Anthropic Claude API
-  - Supabase authentication and data storage
-  - PostHog analytics tracking
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## API Endpoints
-
-### Anthropic
-
-- `POST /api/anthropic/analyze`: Analyze text using Claude AI
-
-### Supabase Authentication
-
-- `POST /api/supabase/auth/login`: Login with email and password
-- `POST /api/supabase/auth/signup`: Register a new user
-
-### Supabase Data
-
-- `POST /api/supabase/user-settings`: Get, update, or insert user settings
-- `POST /api/supabase/beta-access`: Check if an email is in the beta whitelist
-
-### Analytics
-
-- `POST /api/analytics/track`: Track events in PostHog
+2. Set up environment variables:
+   Create a `.env` file in the `vercel-backend` directory with the following variables:
+   ```
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   ALLOWED_ORIGINS=chrome-extension://your-extension-id,*
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_KEY=your_supabase_service_key
+   POSTHOG_API_KEY=your_posthog_api_key
+   POSTHOG_API_HOST=your_posthog_api_host
+   ```
 
 ## Development
 
-### Prerequisites
+To run the development server:
+```bash
+npm run dev
+```
 
-- Node.js 14+
-- npm or yarn
+This will start the Vercel development server, which will serve the API endpoints locally.
 
-### Setup
-
-1. Clone the repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Create a `.env` file with the following variables:
-   ```
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_key
-   POSTHOG_API_KEY=your_posthog_api_key
-   POSTHOG_API_HOST=your_posthog_host
-   ALLOWED_ORIGINS=chrome-extension://your-extension-id
-   ```
-4. Run the development server:
-   ```
-   npm run dev
-   ```
+For debugging:
+```bash
+npm run debug
+```
 
 ## Deployment
 
-### Vercel
+To deploy to Vercel:
+```bash
+npm run deploy
+```
 
-1. Push the code to a GitHub repository
-2. Connect the repository to Vercel
-3. Configure the environment variables in the Vercel dashboard
-4. Deploy
+This will deploy the backend to Vercel. You'll need to be logged in to Vercel CLI first:
+```bash
+npx vercel login
+```
 
-## Security Considerations
+## API Endpoints
 
-- API keys are stored securely as environment variables
-- CORS is configured to only allow requests from the browser extension
-- All API calls are made server-side, not from the browser
+- `/api/healthcheck`: Check if the server is running
+- `/api/anthropic/analyze`: Proxy for Anthropic API
+- `/api/supabase/auth/login`: Login with Supabase
+- `/api/supabase/auth/signup`: Signup with Supabase
+- `/api/supabase/user-settings`: Get/update user settings
+- `/api/supabase/beta-access`: Check beta access
+- `/api/analytics/track`: Track analytics events
+
+## Environment Variables
+
+The following environment variables are required:
+
+- `ANTHROPIC_API_KEY`: Your Anthropic API key
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins (e.g., `chrome-extension://your-extension-id,*`)
+- `SUPABASE_URL`: Your Supabase URL
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `SUPABASE_SERVICE_KEY`: Your Supabase service key
+- `POSTHOG_API_KEY`: Your PostHog API key
+- `POSTHOG_API_HOST`: Your PostHog API host
+
+## Project Structure
+
+- `index.js`: Main entry point for the Express server
+- `vercel.json`: Vercel configuration
+- `package.json`: Project dependencies and scripts
