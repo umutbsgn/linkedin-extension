@@ -48,6 +48,11 @@ export async function createCheckoutSession(token) {
         // Generate base URL from configuration
         const baseUrl = API_ENDPOINTS.VERCEL_BACKEND_URL;
 
+        // Debug API_ENDPOINTS
+        console.log('API_ENDPOINTS:', API_ENDPOINTS);
+        console.log('VERCEL_BACKEND_URL:', baseUrl);
+        console.log('CREATE_CHECKOUT:', API_ENDPOINTS.CREATE_CHECKOUT);
+
         // Create a unique session tracking ID
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
@@ -58,6 +63,9 @@ export async function createCheckoutSession(token) {
         console.log('Using valid URLs for Stripe checkout:', { successUrl, cancelUrl });
 
         // Call the server to create a checkout session
+        console.log('Sending request to:', API_ENDPOINTS.CREATE_CHECKOUT);
+        console.log('With token:', token ? token.substring(0, 10) + '...' : 'undefined');
+
         const response = await fetch(API_ENDPOINTS.CREATE_CHECKOUT, {
             method: 'POST',
             headers: {
@@ -123,18 +131,28 @@ export async function redirectToCheckout(token) {
 // Get subscription status
 export async function getSubscriptionStatus(token) {
     try {
+        // Debug API_ENDPOINTS
+        console.log('API_ENDPOINTS:', API_ENDPOINTS);
+        console.log('SUBSCRIPTION_STATUS:', API_ENDPOINTS.SUBSCRIPTION_STATUS);
+        console.log('With token:', token ? token.substring(0, 10) + '...' : 'undefined');
+
         const response = await fetch(API_ENDPOINTS.SUBSCRIPTION_STATUS, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
 
+        console.log('Subscription status response:', response.status, response.statusText);
+
         if (!response.ok) {
             const errorData = await response.json();
+            console.error('Error data:', errorData);
             throw new Error(errorData.error || `Failed to get subscription status: ${response.status} ${response.statusText}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+        console.log('Subscription status data:', data);
+        return data;
     } catch (error) {
         console.error('Error getting subscription status:', error);
         throw error;
