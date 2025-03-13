@@ -75,10 +75,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 document.addEventListener('DOMContentLoaded', async() => {
-    const apiKeyInput = document.getElementById('apiKey');
-    const saveApiKeyButton = document.getElementById('saveApiKey');
-    const showApiKeyButton = document.getElementById('showApiKey');
-    const apiKeyStatus = document.getElementById('apiKeyStatus');
     const promptInput = document.getElementById('prompt');
     const submitButton = document.getElementById('submit');
     const responseDiv = document.getElementById('response');
@@ -107,23 +103,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     // Initialize extension
     initializeExtension();
 
-    // Migrate old API key if exists
-    migrateOldApiKey();
-
-    async function migrateOldApiKey() {
-        const result = await chrome.storage.local.get(['apiKey', ANTHROPIC_API_KEY]);
-        if (result.apiKey && !result[ANTHROPIC_API_KEY]) {
-            await chrome.storage.local.set({
-                [ANTHROPIC_API_KEY]: result.apiKey
-            });
-            await chrome.storage.local.remove('apiKey');
-            console.log('Migrated old API key to new format');
-        }
-    }
-
     // Event listeners
-    saveApiKeyButton.addEventListener('click', saveUserSettings);
-    showApiKeyButton.addEventListener('click', toggleApiKeyVisibility);
     submitButton.addEventListener('click', analyzeText);
     resetPromptButton.addEventListener('click', resetSystemPrompt);
     resetConnectPromptButton.addEventListener('click', resetConnectSystemPrompt);
@@ -184,11 +164,9 @@ document.addEventListener('DOMContentLoaded', async() => {
             if (error) throw error;
 
             if (data) {
-                apiKeyInput.value = data.api_key || '';
                 systemPromptInput.value = data.system_prompt || DEFAULT_SYSTEM_PROMPT;
                 connectSystemPromptInput.value = data.connect_system_prompt || DEFAULT_CONNECT_SYSTEM_PROMPT;
                 await chrome.storage.local.set({
-                    [ANTHROPIC_API_KEY]: data.api_key,
                     systemPrompt: data.system_prompt,
                     connectSystemPrompt: data.connect_system_prompt
                 });
@@ -202,13 +180,11 @@ document.addEventListener('DOMContentLoaded', async() => {
     }
 
     async function saveUserSettings(retryCount = 0) {
-        const apiKey = apiKeyInput.value.trim();
         const systemPrompt = systemPromptInput.value.trim();
         const connectSystemPrompt = connectSystemPromptInput.value.trim();
 
         // Track settings change attempt
         trackEvent('Settings_Change_Attempt', {
-            has_api_key: !!apiKey,
             system_prompt_length: systemPrompt.length,
             connect_system_prompt_length: connectSystemPrompt.length
         });
@@ -226,7 +202,6 @@ document.addEventListener('DOMContentLoaded', async() => {
             }
 
             const settingsData = {
-                api_key: apiKey,
                 system_prompt: systemPrompt,
                 connect_system_prompt: connectSystemPrompt,
                 updated_at: new Date().toISOString()
@@ -258,7 +233,6 @@ document.addEventListener('DOMContentLoaded', async() => {
 
             // Update local storage
             await chrome.storage.local.set({
-                [ANTHROPIC_API_KEY]: apiKey,
                 systemPrompt,
                 connectSystemPrompt
             });
@@ -267,7 +241,6 @@ document.addEventListener('DOMContentLoaded', async() => {
 
             // Track settings change success
             trackEvent('Settings_Change_Success', {
-                has_api_key: !!apiKey,
                 system_prompt_length: systemPrompt.length,
                 connect_system_prompt_length: connectSystemPrompt.length
             });
@@ -293,15 +266,6 @@ document.addEventListener('DOMContentLoaded', async() => {
         }
     }
 
-    function toggleApiKeyVisibility() {
-        if (apiKeyInput.type === 'password') {
-            apiKeyInput.type = 'text';
-            showApiKeyButton.textContent = '🔒';
-        } else {
-            apiKeyInput.type = 'password';
-            showApiKeyButton.textContent = '👁️';
-        }
-    }
 
     async function analyzeText() {
         const prompt = promptInput.value.trim();
@@ -321,14 +285,11 @@ document.addEventListener('DOMContentLoaded', async() => {
             submitButton.disabled = true;
             responseDiv.textContent = 'Analyzing...';
 
-            const {
-                [ANTHROPIC_API_KEY]: anthropicApiKey, systemPrompt
-            } = await chrome.storage.local.get([ANTHROPIC_API_KEY, 'systemPrompt']);
+            const { systemPrompt } = await chrome.storage.local.get(['systemPrompt']);
 
             const response = await chrome.runtime.sendMessage({
                 action: 'analyze',
                 text: prompt,
-                apiKey: anthropicApiKey,
                 systemPrompt: systemPrompt
             });
 
@@ -482,11 +443,10 @@ document.addEventListener('DOMContentLoaded', async() => {
             showAuthStatus('Logged out successfully', 'success');
             showUnauthenticatedUI();
             // Clear input fields
-            apiKeyInput.value = '';
             systemPromptInput.value = '';
             emailInput.value = '';
             passwordInput.value = '';
-            await chrome.storage.local.remove([ANTHROPIC_API_KEY, 'systemPrompt', 'supabaseAuthToken']);
+            await chrome.storage.local.remove(['systemPrompt', 'supabaseAuthToken']);
             await notifyAuthStatusChange('unauthenticated');
 
             // Track sign out success
@@ -505,8 +465,8 @@ document.addEventListener('DOMContentLoaded', async() => {
     // Function to check if user is authenticated
     async function isUserAuthenticated() {
         try {
-            const result = await chrome.storage.local.get([ANTHROPIC_API_KEY, 'supabaseAuthToken']);
-            return !!(result[ANTHROPIC_API_KEY] && result.supabaseAuthToken);
+            const result = await chrome.storage.local.get(['supabaseAuthToken']);
+            return !!result.supabaseAuthToken;
         } catch (error) {
             console.error('Error checking authentication status:', error);
             return false;
@@ -541,12 +501,8 @@ document.addEventListener('DOMContentLoaded', async() => {
     }
 
     function showStatus(message, type) {
-        apiKeyStatus.textContent = message;
-        apiKeyStatus.className = `status-message ${type}`;
-        setTimeout(() => {
-            apiKeyStatus.textContent = '';
-            apiKeyStatus.className = 'status-message';
-        }, 3000);
+        // Use authStatus for all status messages since apiKeyStatus was removed
+        showAuthStatus(message, type);
     }
 
     function showAuthStatus(message, type) {

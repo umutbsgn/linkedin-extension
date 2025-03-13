@@ -1,5 +1,4 @@
 import { createClient } from './popup/supabase-client.js';
-import { getConnectSystemPrompt, getCommentSystemPrompt } from './background.js';
 
 const supabaseUrl = 'https://fslbhbywcxqmqhwdcgcl.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzbGJoYnl3Y3hxbXFod2RjZ2NsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0MTc2MTQsImV4cCI6MjA1Mzk5MzYxNH0.vOWNflNbXMjzvjVbNPDZdwQqt2jUFy0M2gnt-msWQMM';
