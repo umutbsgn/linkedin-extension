@@ -219,11 +219,43 @@ app.post('/api/subscriptions/create-checkout', async(req, res) => {
         return res.status(400).json({ error: 'Success and cancel URLs are required' });
     }
 
-    // For now, return a mock checkout session
-    return res.status(200).json({
-        sessionId: 'mock_session_id',
-        url: 'https://example.com/checkout'
-    });
+    try {
+        // Get Stripe secret key from environment variables
+        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+        if (!stripeSecretKey) {
+            return res.status(500).json({ error: 'Stripe secret key not configured' });
+        }
+
+        // Get Stripe price ID from environment variables
+        const stripePriceId = process.env.STRIPE_PRO_PRICE_ID;
+        if (!stripePriceId) {
+            return res.status(500).json({ error: 'Stripe price ID not configured' });
+        }
+
+        // Initialize Stripe
+        const stripe = require('stripe')(stripeSecretKey);
+
+        // Create checkout session
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price: stripePriceId,
+                quantity: 1,
+            }, ],
+            mode: 'subscription',
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+        });
+
+        // Return the checkout session
+        return res.status(200).json({
+            sessionId: session.id,
+            url: session.url
+        });
+    } catch (error) {
+        console.error('Error creating checkout session:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/subscriptions/cancel', async(req, res) => {
