@@ -6,5 +6,9 @@
     "routes": [
         { "src": "/api/(.*)", "dest": "/pages/api/$1" },
         { "src": "/(.*)", "dest": "/pages/$1" }
-    ]
+    ],
+    "github": {
+        "enabled": true,
+        "silent": false
+    }
 }
