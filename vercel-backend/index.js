@@ -45,7 +45,7 @@ app.get('/api/healthcheck', (req, res) => {
         status: 'ok',
         timestamp: new Date().toISOString(),
         message: 'Vercel deployment is working correctly',
-        version: '1.0.1'
+        version: '1.0.2'
     });
 });
 
