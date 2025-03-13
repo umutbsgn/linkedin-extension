@@ -163,9 +163,11 @@ document.addEventListener('DOMContentLoaded', async() => {
                 subscriptionManager = createSubscriptionManager(
                     subscriptionContainer,
                     supabase,
-                    showStatus
+                    showStatus,
+                    trackEvent,
+                    loadApiUsage
                 );
-                subscriptionManager.loadSubscriptionStatus();
+                subscriptionManager.initialize();
             }
         }
 
