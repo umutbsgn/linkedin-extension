@@ -1,7 +1,4 @@
 #!/bin/bash
 
-# Change to the vercel-backend directory
-cd vercel-backend
-
-# Deploy to Vercel
-npx vercel deploy --prod
+# Deploy to Vercel from the vercel-backend directory
+cd vercel-backend && npx vercel deploy --prod
