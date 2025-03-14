@@ -131,58 +131,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     const settingsTab = document.getElementById('settingsTab');
     settingsTab.addEventListener('click', () => switchTab('settings'));
 
-    // Add event listeners for Vercel URL settings
-    const vercelBackendUrlInput = document.getElementById('vercelBackendUrl');
-    const saveVercelUrlButton = document.getElementById('saveVercelUrl');
-    const testVercelConnectionButton = document.getElementById('testVercelConnection');
-    const vercelConnectionStatus = document.getElementById('vercelConnectionStatus');
-
-    // Load the current Vercel URL
-    loadVercelBackendUrl();
-
-    // Add event listeners for Vercel URL settings
-    saveVercelUrlButton.addEventListener('click', saveVercelBackendUrl);
-    testVercelConnectionButton.addEventListener('click', testVercelConnection);
-
-    // Function to load the Vercel backend URL
-    async function loadVercelBackendUrl() {
-        try {
-            // Use the direct URL from API_ENDPOINTS
-            vercelBackendUrlInput.value = API_ENDPOINTS.VERCEL_BACKEND_URL;
-            showVercelConnectionStatus('Using direct Vercel backend URL', 'info');
-        } catch (error) {
-            console.error('Error loading Vercel backend URL:', error);
-            showVercelConnectionStatus('Error loading Vercel backend URL', 'error');
-        }
-    }
-
-    // Function to save the Vercel backend URL
-    async function saveVercelBackendUrl() {
-        // This function is now disabled as we're using a direct URL
-        showVercelConnectionStatus('Using direct Vercel backend URL. URL cannot be changed.', 'info');
-    }
-
-    // Function to test the connection to the Vercel backend
-    async function testVercelConnection() {
-        showVercelConnectionStatus('Testing connection...', 'info');
-
-        try {
-            const healthcheckResult = await apiClient.healthCheck();
-            showVercelConnectionStatus('Connection successful! Server is healthy.', 'success');
-        } catch (error) {
-            console.error('Error testing Vercel connection:', error);
-            showVercelConnectionStatus('Error testing connection: ' + error.message, 'error');
-        }
-    }
-
-    // Function to show Vercel connection status
-    function showVercelConnectionStatus(message, type) {
-        vercelConnectionStatus.textContent = message;
-        vercelConnectionStatus.className = `status-message ${type}`;
-        setTimeout(() => {
-            vercelConnectionStatus.className = 'status-message';
-        }, 5000);
-    }
+    // Vercel backend URL settings removed
 
     function switchTab(tab) {
         // Determine previous tab
@@ -228,9 +177,6 @@ document.addEventListener('DOMContentLoaded', async() => {
         } else if (tab === 'settings') {
             settingsTab.classList.add('active');
             settingsContent.classList.add('active');
-
-            // Refresh Vercel URL when switching to settings tab
-            loadVercelBackendUrl();
         }
 
         // Track tab change
