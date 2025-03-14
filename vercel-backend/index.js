@@ -112,19 +112,192 @@ app.post('/api/anthropic/analyze', async(req, res) => {
 
 // Supabase Auth endpoints
 app.post('/api/supabase/auth/login', async(req, res) => {
-    // Implementation for login
-    res.status(200).json({ message: 'Login endpoint' });
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        // Get Supabase credentials from environment variables
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            return res.status(500).json({ error: 'Supabase configuration missing on server' });
+        }
+
+        console.log(`Attempting login for email: ${email}`);
+
+        // Make request to Supabase Auth API
+        const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        // Get response data
+        const data = await response.json();
+        console.log('Supabase login response status:', response.status);
+
+        // Return the same status code and data that Supabase returned
+        return res.status(response.status).json(data);
+    } catch (error) {
+        console.error('Error in Supabase login proxy:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/supabase/auth/signup', async(req, res) => {
-    // Implementation for signup
-    res.status(200).json({ message: 'Signup endpoint' });
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        // Get Supabase credentials from environment variables
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            return res.status(500).json({ error: 'Supabase configuration missing on server' });
+        }
+
+        console.log(`Attempting signup for email: ${email}`);
+
+        // Make request to Supabase Auth API
+        const response = await fetch(`${supabaseUrl}/auth/v1/signup`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        // Get response data
+        const data = await response.json();
+        console.log('Supabase signup response status:', response.status);
+
+        // Return the same status code and data that Supabase returned
+        return res.status(response.status).json(data);
+    } catch (error) {
+        console.error('Error in Supabase signup proxy:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 // Supabase Data endpoints
-app.get('/api/supabase/user-settings', async(req, res) => {
-    // Implementation for user settings
-    res.status(200).json({ message: 'User settings endpoint' });
+app.post('/api/supabase/user-settings', async(req, res) => {
+    try {
+        const { userId, token, action, data } = req.body;
+
+        if (!userId || !token || !action) {
+            return res.status(400).json({ error: 'userId, token, and action are required' });
+        }
+
+        // Get Supabase credentials from environment variables
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            return res.status(500).json({ error: 'Supabase configuration missing on server' });
+        }
+
+        // Initialize Supabase client
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Verify token
+        try {
+            const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+            if (userError) {
+                console.error('Error verifying token:', userError);
+                return res.status(401).json({ error: 'Invalid or expired token' });
+            }
+
+            if (userData.user.id !== userId) {
+                return res.status(403).json({ error: 'Unauthorized access to user settings' });
+            }
+
+            console.log(`User settings ${action} for user ID: ${userId}`);
+
+            // Perform action based on request
+            if (action === 'get') {
+                // Get user settings
+                const { data: settings, error: settingsError } = await supabase
+                    .from('user_settings')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
+
+                if (settingsError && settingsError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+                    console.error('Error getting user settings:', settingsError);
+                    return res.status(500).json({ error: settingsError.message });
+                }
+
+                // Return settings or empty object if not found
+                return res.status(200).json(settings || {});
+            } else if (action === 'update') {
+                if (!data) {
+                    return res.status(400).json({ error: 'data is required for update action' });
+                }
+
+                // Check if settings exist
+                const { data: existingSettings } = await supabase
+                    .from('user_settings')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .single();
+
+                let result;
+
+                if (existingSettings) {
+                    // Update existing settings
+                    result = await supabase
+                        .from('user_settings')
+                        .update({
+                            ...data,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('user_id', userId)
+                        .select();
+                } else {
+                    // Insert new settings
+                    result = await supabase
+                        .from('user_settings')
+                        .insert({
+                            user_id: userId,
+                            ...data,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        })
+                        .select();
+                }
+
+                if (result.error) {
+                    console.error('Error updating user settings:', result.error);
+                    return res.status(500).json({ error: result.error.message });
+                }
+
+                return res.status(200).json(result.data[0]);
+            } else {
+                return res.status(400).json({ error: 'Invalid action. Must be get or update' });
+            }
+        } catch (error) {
+            console.error('Error verifying token:', error);
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+    } catch (error) {
+        console.error('Error in user settings endpoint:', error);
+        return res.status(500).json({ error: error.message });
+    }
 });
 
 app.get('/api/supabase/beta-access', async(req, res) => {
