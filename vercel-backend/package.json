@@ -7,7 +7,8 @@
         "dev": "vercel dev",
         "deploy": "vercel deploy --prod",
         "start": "node index.js",
-        "debug": "vercel dev --debug"
+        "debug": "vercel dev --debug",
+        "vercel-build": "next build"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.49.1",
