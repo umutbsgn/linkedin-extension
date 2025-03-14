@@ -7,6 +7,7 @@ export const VERCEL_BACKEND_URL = 'https://linkedin-extension-umutbsgn-umutbsgns
 export const API_ENDPOINTS = {
     // Anthropic
     ANALYZE: `${VERCEL_BACKEND_URL}/api/anthropic/analyze`,
+    ANTHROPIC_API_KEY: `${VERCEL_BACKEND_URL}/api/config/anthropic-key`,
 
     // Supabase Auth
     LOGIN: `${VERCEL_BACKEND_URL}/api/supabase/auth/login`,
@@ -15,6 +16,10 @@ export const API_ENDPOINTS = {
     // Supabase Data
     USER_SETTINGS: `${VERCEL_BACKEND_URL}/api/supabase/user-settings`,
     BETA_ACCESS: `${VERCEL_BACKEND_URL}/api/supabase/beta-access`,
+
+    // Supabase Configuration
+    SUPABASE_URL: `${VERCEL_BACKEND_URL}/api/config/supabase-url`,
+    SUPABASE_KEY: `${VERCEL_BACKEND_URL}/api/config/supabase-key`,
 
     // Analytics
     TRACK: `${VERCEL_BACKEND_URL}/api/analytics/track`,

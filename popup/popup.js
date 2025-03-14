@@ -14,9 +14,48 @@ import {
     identifyUserWithSupabase
 } from './analytics.js';
 
-const supabaseUrl = 'https://fslbhbywcxqmqhwdcgcl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzbGJoYnl3Y3hxbXFod2RjZ2NsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0MTc2MTQsImV4cCI6MjA1Mzk5MzYxNH0.vOWNflNbXMjzvjVbNPDZdwQqt2jUFy0M2gnt-msWQMM';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { API_ENDPOINTS } from '../config.js';
+
+// Initialize with empty values, will be fetched from the server
+let supabaseUrl = '';
+let supabaseKey = '';
+let supabase = null;
+
+// Fetch Supabase configuration from the server
+async function fetchSupabaseConfig() {
+    try {
+        // Fetch Supabase URL
+        const urlResponse = await fetch(API_ENDPOINTS.SUPABASE_URL);
+        if (urlResponse.ok) {
+            const urlData = await urlResponse.json();
+            supabaseUrl = urlData.url;
+        } else {
+            console.error('Failed to fetch Supabase URL:', urlResponse.status, urlResponse.statusText);
+        }
+
+        // Fetch Supabase key
+        const keyResponse = await fetch(API_ENDPOINTS.SUPABASE_KEY);
+        if (keyResponse.ok) {
+            const keyData = await keyResponse.json();
+            supabaseKey = keyData.key;
+        } else {
+            console.error('Failed to fetch Supabase key:', keyResponse.status, keyResponse.statusText);
+        }
+
+        // Initialize Supabase client if both URL and key are available
+        if (supabaseUrl && supabaseKey) {
+            supabase = createClient(supabaseUrl, supabaseKey);
+            console.log('Supabase client initialized with configuration from server');
+        } else {
+            console.error('Failed to initialize Supabase client: missing URL or key');
+        }
+
+        return { supabaseUrl, supabaseKey };
+    } catch (error) {
+        console.error('Error fetching Supabase configuration:', error);
+        return { supabaseUrl: '', supabaseKey: '' };
+    }
+}
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -102,7 +141,28 @@ document.addEventListener('DOMContentLoaded', async() => {
 
     const DEFAULT_SYSTEM_PROMPT = `You are a flexible LinkedIn communication partner. Your task is to analyze the author's style, respond accordingly, and provide casual value. Your response should be concise, maximum 120 characters, and written directly in the author's style.`;
     const DEFAULT_CONNECT_SYSTEM_PROMPT = `You are a LinkedIn connection request assistant. Your task is to analyze the recipient's profile and craft a personalized, concise connection message. Keep it friendly, professional, and highlight a shared interest or mutual benefit. Maximum 160 characters.`;
-    const ANTHROPIC_API_KEY = 'anthropicApiKey';
+
+    // Initialize with empty value, will be fetched from the server
+    let anthropicApiKey = '';
+
+    // Fetch Anthropic API key from the server
+    async function fetchAnthropicApiKey() {
+        try {
+            const response = await fetch(API_ENDPOINTS.ANTHROPIC_API_KEY);
+            if (response.ok) {
+                const data = await response.json();
+                anthropicApiKey = data.key;
+                console.log('Anthropic API key fetched from server');
+                return anthropicApiKey;
+            } else {
+                console.error('Failed to fetch Anthropic API key:', response.status, response.statusText);
+                return '';
+            }
+        } catch (error) {
+            console.error('Error fetching Anthropic API key:', error);
+            return '';
+        }
+    }
 
     // Initialize extension
     initializeExtension();
@@ -163,11 +223,9 @@ document.addEventListener('DOMContentLoaded', async() => {
                 subscriptionManager = createSubscriptionManager(
                     subscriptionContainer,
                     supabase,
-                    showStatus,
-                    trackEvent,
-                    loadApiUsage
+                    showStatus
                 );
-                subscriptionManager.initialize();
+                subscriptionManager.loadSubscriptionStatus();
             }
         }
 
@@ -177,6 +235,19 @@ document.addEventListener('DOMContentLoaded', async() => {
 
     // Functions
     async function initializeExtension() {
+        // Fetch Supabase configuration from the server
+        await fetchSupabaseConfig();
+
+        // Fetch Anthropic API key from the server
+        await fetchAnthropicApiKey();
+
+        // Initialize Supabase client if not already initialized
+        if (!supabase) {
+            showStatus('Error initializing Supabase client', 'error');
+            showUnauthenticatedUI();
+            return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
             showAuthenticatedUI();

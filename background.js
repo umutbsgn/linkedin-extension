@@ -110,9 +110,51 @@ async function trackEvent(eventName, properties = {}) {
     }
 }
 
-const supabaseUrl = 'https://fslbhbywcxqmqhwdcgcl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzbGJoYnl3Y3hxbXFod2RjZ2NsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0MTc2MTQsImV4cCI6MjA1Mzk5MzYxNH0.vOWNflNbXMjzvjVbNPDZdwQqt2jUFy0M2gnt-msWQMM';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { API_ENDPOINTS } from './config.js';
+
+// Initialize with empty values, will be fetched from the server
+let supabaseUrl = '';
+let supabaseKey = '';
+let supabase = null;
+
+// Fetch Supabase configuration from the server
+async function fetchSupabaseConfig() {
+    try {
+        // Fetch Supabase URL
+        const urlResponse = await fetch(API_ENDPOINTS.SUPABASE_URL);
+        if (urlResponse.ok) {
+            const urlData = await urlResponse.json();
+            supabaseUrl = urlData.url;
+        } else {
+            console.error('Failed to fetch Supabase URL:', urlResponse.status, urlResponse.statusText);
+        }
+
+        // Fetch Supabase key
+        const keyResponse = await fetch(API_ENDPOINTS.SUPABASE_KEY);
+        if (keyResponse.ok) {
+            const keyData = await keyResponse.json();
+            supabaseKey = keyData.key;
+        } else {
+            console.error('Failed to fetch Supabase key:', keyResponse.status, keyResponse.statusText);
+        }
+
+        // Initialize Supabase client if both URL and key are available
+        if (supabaseUrl && supabaseKey) {
+            supabase = createClient(supabaseUrl, supabaseKey);
+            console.log('Supabase client initialized with configuration from server');
+        } else {
+            console.error('Failed to initialize Supabase client: missing URL or key');
+        }
+
+        return { supabaseUrl, supabaseKey };
+    } catch (error) {
+        console.error('Error fetching Supabase configuration:', error);
+        return { supabaseUrl: '', supabaseKey: '' };
+    }
+}
+
+// Initialize Supabase client
+fetchSupabaseConfig();
 
 async function callAnthropicAPI(prompt, systemPrompt) {
     const startTime = Date.now();
