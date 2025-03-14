@@ -1,6 +1,6 @@
-import { createClient } from './popup/supabase-client.js';
 import { getPostHogApiKey, getPostHogApiHost, fetchPostHogConfig } from './popup/analytics.js';
-import { API_ENDPOINTS, getApiEndpoint } from './config.js';
+import { API_ENDPOINTS } from './config.js';
+import apiClient from './popup/api-client.js';
 
 // Initialize PostHog configuration
 let posthogApiKey = '';
@@ -56,16 +56,19 @@ async function trackEvent(eventName, properties = {}) {
         ...properties
     };
 
-    // Try to get the user's email from Supabase to use as distinct_id
-    let userEmail = null;
+    // Try to get user information from API client
+    let userId = 'anonymous_user';
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user) {
-            userEmail = session.user.email;
-            console.log('Using user email for tracking:', userEmail);
+        const isAuthenticated = await apiClient.isAuthenticated();
+        if (isAuthenticated) {
+            const userProfile = await apiClient.getUserProfile();
+            if (userProfile && userProfile.email) {
+                userId = userProfile.email;
+                console.log('Using user email for tracking:', userId);
+            }
         }
     } catch (error) {
-        console.error('Error getting user email:', error);
+        console.error('Error getting user information for tracking:', error);
     }
 
     // Send directly to PostHog API
@@ -97,7 +100,7 @@ async function trackEvent(eventName, properties = {}) {
                 api_key: posthogApiKey,
                 event: eventName,
                 properties: eventProperties,
-                distinct_id: userEmail || 'anonymous_user', // Use email if available, otherwise anonymous
+                distinct_id: userId,
                 timestamp: new Date().toISOString()
             })
         }).catch(error => {
@@ -110,54 +113,7 @@ async function trackEvent(eventName, properties = {}) {
     }
 }
 
-import { API_ENDPOINTS } from './config.js';
-
-// Initialize with empty values, will be fetched from the server
-let supabaseUrl = '';
-let supabaseKey = '';
-let supabase = null;
-
-// Fetch Supabase configuration from the server
-async function fetchSupabaseConfig() {
-    try {
-        // Fetch Supabase URL
-        const supabaseUrlEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_URL);
-        const urlResponse = await fetch(supabaseUrlEndpoint);
-        if (urlResponse.ok) {
-            const urlData = await urlResponse.json();
-            supabaseUrl = urlData.url;
-        } else {
-            console.error('Failed to fetch Supabase URL:', urlResponse.status, urlResponse.statusText);
-        }
-
-        // Fetch Supabase key
-        const supabaseKeyEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_KEY);
-        const keyResponse = await fetch(supabaseKeyEndpoint);
-        if (keyResponse.ok) {
-            const keyData = await keyResponse.json();
-            supabaseKey = keyData.key;
-        } else {
-            console.error('Failed to fetch Supabase key:', keyResponse.status, keyResponse.statusText);
-        }
-
-        // Initialize Supabase client if both URL and key are available
-        if (supabaseUrl && supabaseKey) {
-            supabase = createClient(supabaseUrl, supabaseKey);
-            console.log('Supabase client initialized with configuration from server');
-        } else {
-            console.error('Failed to initialize Supabase client: missing URL or key');
-        }
-
-        return { supabaseUrl, supabaseKey };
-    } catch (error) {
-        console.error('Error fetching Supabase configuration:', error);
-        return { supabaseUrl: '', supabaseKey: '' };
-    }
-}
-
-// Initialize Supabase client
-fetchSupabaseConfig();
-
+// Function to call Anthropic API
 async function callAnthropicAPI(prompt, systemPrompt) {
     const startTime = Date.now();
 
@@ -169,42 +125,10 @@ async function callAnthropicAPI(prompt, systemPrompt) {
     });
 
     try {
-        const analyzeEndpoint = await getApiEndpoint(API_ENDPOINTS.ANALYZE);
-        const response = await fetch(analyzeEndpoint, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                text: prompt,
-                systemPrompt: systemPrompt
-            })
-        });
-
-        const responseTime = Date.now() - startTime;
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.error || response.statusText;
-
-            // Track API call failure
-            trackEvent('API_Call_Failure', {
-                endpoint: 'anthropic_messages',
-                error: errorMessage,
-                status_code: response.status,
-                response_time_ms: responseTime
-            });
-
-            // Special handling for 503 Service Unavailable (which may be due to Anthropic 529 Overloaded)
-            if (response.status === 503 && errorMessage.includes("high demand")) {
-                throw new Error("The AI service is currently experiencing high demand. Please try again in a few moments.");
-            }
-
-            throw new Error(`API call failed: ${response.status} - ${errorMessage}`);
-        }
-
-        const data = await response.json();
+        // Use the API client to make the request
+        const data = await apiClient.analyzeText(prompt, systemPrompt);
         const responseSize = JSON.stringify(data).length;
+        const responseTime = Date.now() - startTime;
 
         // Track API call success
         trackEvent('API_Call_Success', {
@@ -217,15 +141,14 @@ async function callAnthropicAPI(prompt, systemPrompt) {
         return data;
     } catch (error) {
         console.error('API Call Error:', error);
+        const responseTime = Date.now() - startTime;
 
-        // Track API call error if not already tracked
-        if (!error.message.includes('API call failed:')) {
-            trackEvent('API_Call_Failure', {
-                endpoint: 'anthropic_messages',
-                error: error.message,
-                response_time_ms: Date.now() - startTime
-            });
-        }
+        // Track API call error
+        trackEvent('API_Call_Failure', {
+            endpoint: 'anthropic_messages',
+            error: error.message,
+            response_time_ms: responseTime
+        });
 
         throw error;
     }
@@ -234,36 +157,88 @@ async function callAnthropicAPI(prompt, systemPrompt) {
 // Default connect system prompt for CONNECT
 const DEFAULT_CONNECT_SYSTEM_PROMPT = 'You are a LinkedIn connection request assistant. Your task is to analyze the recipient\'s profile and craft a personalized, concise connection message. Keep it friendly, professional, and highlight a shared interest or mutual benefit. Maximum 160 characters.';
 
+// Function to get user settings
+async function getUserSettings() {
+    try {
+        // Check if user is authenticated
+        const isAuthenticated = await apiClient.isAuthenticated();
+        if (!isAuthenticated) {
+            throw new Error('User not authenticated');
+        }
+
+        // Get user settings
+        return await apiClient.getUserSettings();
+    } catch (error) {
+        console.error('Error getting user settings:', error);
+        throw error;
+    }
+}
+
+// Function to get comment system prompt
+async function getCommentSystemPrompt() {
+    try {
+        const settings = await getUserSettings();
+        return settings.system_prompt;
+    } catch (error) {
+        console.error('Error fetching comment system prompt:', error);
+        throw error;
+    }
+}
+
+// Function to get connect system prompt
+async function getConnectSystemPrompt() {
+    try {
+        const settings = await getUserSettings();
+        if (settings && settings.connect_system_prompt) {
+            console.log('Retrieved connect system prompt:', settings.connect_system_prompt);
+            return settings.connect_system_prompt;
+        } else {
+            console.log('No custom connect system prompt found, using default');
+            return DEFAULT_CONNECT_SYSTEM_PROMPT;
+        }
+    } catch (error) {
+        console.error('Error fetching connect system prompt:', error);
+        console.log('Using default connect system prompt due to error');
+        return DEFAULT_CONNECT_SYSTEM_PROMPT;
+    }
+}
+
+// Message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "analyze") {
         callAnthropicAPI(request.text, request.systemPrompt)
             .then(response => sendResponse({ success: true, data: response }))
             .catch(error => sendResponse({ success: false, error: error.message }));
         return true; // Indicates an asynchronous response
-    } else if (request.action === "storeSupabaseToken") {
-        chrome.storage.local.set({ supabaseAuthToken: request.token }, () => {
-            sendResponse({ success: true });
-        });
+    } else if (request.action === "login") {
+        apiClient.login(request.email, request.password)
+            .then(response => sendResponse({ success: true, data: response }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
         return true;
-    } else if (request.action === "getSupabaseToken") {
-        chrome.storage.local.get('supabaseAuthToken', (result) => {
-            sendResponse({ token: result.supabaseAuthToken });
-        });
+    } else if (request.action === "register") {
+        apiClient.register(request.email, request.password)
+            .then(response => sendResponse({ success: true, data: response }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
         return true;
-    } else if (request.action === 'getCommentSystemPrompt') {
+    } else if (request.action === "logout") {
+        apiClient.logout()
+            .then(response => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    } else if (request.action === "getCommentSystemPrompt") {
         getCommentSystemPrompt()
             .then(systemPromptComments => sendResponse({ systemPromptComments }))
             .catch(error => sendResponse({ error: error.message }));
-        return true; // Indicates an asynchronous response
-    } else if (request.action === 'getConnectSystemPrompt') {
+        return true;
+    } else if (request.action === "getConnectSystemPrompt") {
         getConnectSystemPrompt()
             .then(systemPromptConnect => sendResponse({ systemPromptConnect }))
             .catch(error => {
                 console.error('Error in getConnectSystemPrompt:', error);
                 sendResponse({ systemPromptConnect: DEFAULT_CONNECT_SYSTEM_PROMPT });
             });
-        return true; // Indicates an asynchronous response
-    } else if (request.action === 'trackEvent') {
+        return true;
+    } else if (request.action === "trackEvent") {
         // Handle tracking events from content script
         trackEvent(request.eventName, request.properties)
             .then(() => sendResponse({ success: true }))
@@ -271,23 +246,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.error('Error handling trackEvent:', error);
                 sendResponse({ success: false, error: error.message });
             });
-        return true; // Indicates an asynchronous response
-    } else if (request.action === 'posthog_track') {
+        return true;
+    } else if (request.action === "posthog_track") {
         // This is a special case for background script tracking
-        // Forward to popup for actual tracking in PostHog
         (async() => {
             try {
                 // Handle specific event types directly
                 if (request.eventName === 'post_comment' || request.eventName === 'connection_message') {
                     // Use trackEvent directly with the specific event name
                     await trackEvent(request.eventName, request.properties);
-                    // No forwarding to popup to avoid loops
                 }
                 // Prioritize Autocapture
                 else if (request.eventName === 'Autocapture') {
                     // Use trackEvent directly
                     await trackEvent('Autocapture', request.properties);
-                    // No forwarding to popup to avoid loops
                 }
                 // For other events, map to post_comment (preferred)
                 else {
@@ -297,16 +269,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     };
 
                     await trackEvent('post_comment', mappedProperties);
-                    // No forwarding to popup to avoid loops
                 }
 
                 sendResponse({ success: true });
             } catch (error) {
-                console.error('Error forwarding posthog_track:', error);
+                console.error('Error handling posthog_track:', error);
                 sendResponse({ success: false, error: error.message });
             }
         })();
-        return true; // Indicates an asynchronous response
+        return true;
     }
 });
 
@@ -324,61 +295,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
 });
 
-async function getCommentSystemPrompt() {
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-            throw new Error('No active session');
-        }
-        const userId = session.user.id;
-        const { data, error } = await supabase
-            .from('user_settings')
-            .select('system_prompt')
-            .eq('user_id', userId)
-            .single();
-
-        if (error) throw error;
-        return data.system_prompt;
-    } catch (error) {
-        console.error('Error fetching comment system prompt:', error);
-        throw error;
-    }
-}
-
-async function getConnectSystemPrompt() {
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-            throw new Error('No active session');
-        }
-        const userId = session.user.id;
-        const { data, error } = await supabase
-            .from('user_settings')
-            .select('connect_system_prompt')
-            .eq('user_id', userId)
-            .single();
-
-        if (error) throw error;
-
-        if (data && data.connect_system_prompt) {
-            console.log('Retrieved connect system prompt from Supabase:', data.connect_system_prompt);
-            return data.connect_system_prompt;
-        } else {
-            console.log('No custom connect system prompt found, using default');
-            return DEFAULT_CONNECT_SYSTEM_PROMPT;
-        }
-    } catch (error) {
-        console.error('Error fetching connect system prompt:', error);
-        console.log('Using default connect system prompt due to error');
-        return DEFAULT_CONNECT_SYSTEM_PROMPT;
-    }
-}
-
-// Initialize Supabase session
-chrome.runtime.onInstalled.addListener(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            chrome.storage.local.set({ supabaseAuthToken: session.access_token });
-        }
-    });
+// Initialize API client
+apiClient.initialize().catch(error => {
+    console.error('Error initializing API client:', error);
 });

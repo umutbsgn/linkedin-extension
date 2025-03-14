@@ -1,5 +1,3 @@
-import { createClient } from './supabase-client.js';
-import { checkBetaAccess } from './beta-validator.js';
 import { createSubscriptionManager } from './subscription-manager.js';
 import {
     initAnalytics,
@@ -10,54 +8,15 @@ import {
     trackRegistrationAttempt,
     trackRegistrationSuccess,
     trackRegistrationFailure,
-    trackSessionStart,
-    identifyUserWithSupabase
+    trackSessionStart
 } from './analytics.js';
 
-import { API_ENDPOINTS, getApiEndpoint, getVercelBackendUrl, setVercelBackendUrl } from '../config.js';
+import { API_ENDPOINTS } from '../config.js';
+import apiClient from './api-client.js';
 
-// Initialize with empty values, will be fetched from the server
-let supabaseUrl = '';
-let supabaseKey = '';
-let supabase = null;
-
-// Fetch Supabase configuration from the server
-async function fetchSupabaseConfig() {
-    try {
-        // Fetch Supabase URL
-        const supabaseUrlEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_URL);
-        const urlResponse = await fetch(supabaseUrlEndpoint);
-        if (urlResponse.ok) {
-            const urlData = await urlResponse.json();
-            supabaseUrl = urlData.url;
-        } else {
-            console.error('Failed to fetch Supabase URL:', urlResponse.status, urlResponse.statusText);
-        }
-
-        // Fetch Supabase key
-        const supabaseKeyEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_KEY);
-        const keyResponse = await fetch(supabaseKeyEndpoint);
-        if (keyResponse.ok) {
-            const keyData = await keyResponse.json();
-            supabaseKey = keyData.key;
-        } else {
-            console.error('Failed to fetch Supabase key:', keyResponse.status, keyResponse.statusText);
-        }
-
-        // Initialize Supabase client if both URL and key are available
-        if (supabaseUrl && supabaseKey) {
-            supabase = createClient(supabaseUrl, supabaseKey);
-            console.log('Supabase client initialized with configuration from server');
-        } else {
-            console.error('Failed to initialize Supabase client: missing URL or key');
-        }
-
-        return { supabaseUrl, supabaseKey };
-    } catch (error) {
-        console.error('Error fetching Supabase configuration:', error);
-        return { supabaseUrl: '', supabaseKey: '' };
-    }
-}
+// Default system prompts
+const DEFAULT_SYSTEM_PROMPT = `You are a flexible LinkedIn communication partner. Your task is to analyze the author's style, respond accordingly, and provide casual value. Your response should be concise, maximum 120 characters, and written directly in the author's style.`;
+const DEFAULT_CONNECT_SYSTEM_PROMPT = `You are a LinkedIn connection request assistant. Your task is to analyze the recipient's profile and craft a personalized, concise connection message. Keep it friendly, professional, and highlight a shared interest or mutual benefit. Maximum 160 characters.`;
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -142,32 +101,6 @@ document.addEventListener('DOMContentLoaded', async() => {
     const settingsContent = document.getElementById('settingsContent');
     const subscriptionContainer = document.getElementById('subscriptionContainer');
 
-    const DEFAULT_SYSTEM_PROMPT = `You are a flexible LinkedIn communication partner. Your task is to analyze the author's style, respond accordingly, and provide casual value. Your response should be concise, maximum 120 characters, and written directly in the author's style.`;
-    const DEFAULT_CONNECT_SYSTEM_PROMPT = `You are a LinkedIn connection request assistant. Your task is to analyze the recipient's profile and craft a personalized, concise connection message. Keep it friendly, professional, and highlight a shared interest or mutual benefit. Maximum 160 characters.`;
-
-    // Initialize with empty value, will be fetched from the server
-    let anthropicApiKey = '';
-
-    // Fetch Anthropic API key from the server
-    async function fetchAnthropicApiKey() {
-        try {
-            const anthropicKeyEndpoint = await getApiEndpoint(API_ENDPOINTS.ANTHROPIC_API_KEY);
-            const response = await fetch(anthropicKeyEndpoint);
-            if (response.ok) {
-                const data = await response.json();
-                anthropicApiKey = data.key;
-                console.log('Anthropic API key fetched from server');
-                return anthropicApiKey;
-            } else {
-                console.error('Failed to fetch Anthropic API key:', response.status, response.statusText);
-                return '';
-            }
-        } catch (error) {
-            console.error('Error fetching Anthropic API key:', error);
-            return '';
-        }
-    }
-
     // Initialize extension
     initializeExtension();
 
@@ -211,35 +144,22 @@ document.addEventListener('DOMContentLoaded', async() => {
     saveVercelUrlButton.addEventListener('click', saveVercelBackendUrl);
     testVercelConnectionButton.addEventListener('click', testVercelConnection);
 
-    // Function to load the Vercel backend URL from storage
+    // Function to load the Vercel backend URL
     async function loadVercelBackendUrl() {
         try {
-            const url = await getVercelBackendUrl();
-            vercelBackendUrlInput.value = url;
+            // Use the direct URL from API_ENDPOINTS
+            vercelBackendUrlInput.value = API_ENDPOINTS.VERCEL_BACKEND_URL;
+            showVercelConnectionStatus('Using direct Vercel backend URL', 'info');
         } catch (error) {
             console.error('Error loading Vercel backend URL:', error);
             showVercelConnectionStatus('Error loading Vercel backend URL', 'error');
         }
     }
 
-    // Function to save the Vercel backend URL to storage
+    // Function to save the Vercel backend URL
     async function saveVercelBackendUrl() {
-        const url = vercelBackendUrlInput.value.trim();
-        if (!url) {
-            showVercelConnectionStatus('Please enter a valid URL', 'error');
-            return;
-        }
-
-        try {
-            await setVercelBackendUrl(url);
-            showVercelConnectionStatus('Vercel backend URL saved successfully', 'success');
-
-            // Test the connection after saving
-            await testVercelConnection();
-        } catch (error) {
-            console.error('Error saving Vercel backend URL:', error);
-            showVercelConnectionStatus('Error saving Vercel backend URL: ' + error.message, 'error');
-        }
+        // This function is now disabled as we're using a direct URL
+        showVercelConnectionStatus('Using direct Vercel backend URL. URL cannot be changed.', 'info');
     }
 
     // Function to test the connection to the Vercel backend
@@ -247,17 +167,8 @@ document.addEventListener('DOMContentLoaded', async() => {
         showVercelConnectionStatus('Testing connection...', 'info');
 
         try {
-            const url = await getVercelBackendUrl();
-            const healthcheckEndpoint = await getApiEndpoint('/api/healthcheck');
-
-            const response = await fetch(healthcheckEndpoint);
-
-            if (response.ok) {
-                const data = await response.json();
-                showVercelConnectionStatus('Connection successful! Server is healthy.', 'success');
-            } else {
-                showVercelConnectionStatus(`Connection failed: ${response.status} ${response.statusText}`, 'error');
-            }
+            const healthcheckResult = await apiClient.healthCheck();
+            showVercelConnectionStatus('Connection successful! Server is healthy.', 'success');
         } catch (error) {
             console.error('Error testing Vercel connection:', error);
             showVercelConnectionStatus('Error testing connection: ' + error.message, 'error');
@@ -309,7 +220,7 @@ document.addEventListener('DOMContentLoaded', async() => {
             if (!subscriptionManager) {
                 subscriptionManager = createSubscriptionManager(
                     subscriptionContainer,
-                    supabase,
+                    apiClient,
                     showStatus
                 );
                 subscriptionManager.loadSubscriptionStatus();
@@ -328,58 +239,81 @@ document.addEventListener('DOMContentLoaded', async() => {
 
     // Functions
     async function initializeExtension() {
-        // Fetch Supabase configuration from the server
-        await fetchSupabaseConfig();
+        try {
+            // Initialize API client
+            await apiClient.initialize();
 
-        // Fetch Anthropic API key from the server
-        await fetchAnthropicApiKey();
+            // Check if user is authenticated
+            const isAuthenticated = await apiClient.isAuthenticated();
 
-        // Initialize Supabase client if not already initialized
-        if (!supabase) {
-            showStatus('Error initializing Supabase client', 'error');
+            if (isAuthenticated) {
+                showAuthenticatedUI();
+                await loadUserSettings();
+
+                // Get user profile for analytics
+                try {
+                    const userProfile = await apiClient.getUserProfile();
+                    if (userProfile && userProfile.email) {
+                        // Identify user in analytics
+                        trackEvent('User_Identified', {
+                            user_id: userProfile.id,
+                            email: userProfile.email
+                        });
+
+                        // Start session tracking
+                        trackSessionStart(userProfile.email);
+                    }
+                } catch (error) {
+                    console.error('Error getting user profile:', error);
+                }
+            } else {
+                showUnauthenticatedUI();
+            }
+
+            // Initialize analytics
+            initAnalytics();
+        } catch (error) {
+            console.error('Error initializing extension:', error);
+            showStatus('Error initializing extension: ' + error.message, 'error');
             showUnauthenticatedUI();
-            return;
         }
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            showAuthenticatedUI();
-            await loadUserSettings();
-
-            // Identify user in PostHog with Supabase data
-            await identifyUserWithSupabase(supabase, session.user.id);
-        } else {
-            showUnauthenticatedUI();
-        }
-        initAnalytics(); // Initialize PostHog
     }
 
     async function loadUserSettings() {
         try {
-            const { data, error } = await supabase
-                .from('user_settings')
-                .select('*')
-                .single();
+            // Get user settings from API
+            const settings = await apiClient.getUserSettings();
 
-            if (error) throw error;
+            if (settings) {
+                systemPromptInput.value = settings.system_prompt || DEFAULT_SYSTEM_PROMPT;
+                connectSystemPromptInput.value = settings.connect_system_prompt || DEFAULT_CONNECT_SYSTEM_PROMPT;
 
-            if (data) {
-                systemPromptInput.value = data.system_prompt || DEFAULT_SYSTEM_PROMPT;
-                connectSystemPromptInput.value = data.connect_system_prompt || DEFAULT_CONNECT_SYSTEM_PROMPT;
+                // Save to local storage for background script
                 await chrome.storage.local.set({
-                    systemPrompt: data.system_prompt,
-                    connectSystemPrompt: data.connect_system_prompt
+                    systemPrompt: settings.system_prompt || DEFAULT_SYSTEM_PROMPT,
+                    connectSystemPrompt: settings.connect_system_prompt || DEFAULT_CONNECT_SYSTEM_PROMPT
                 });
+
                 showStatus('User settings loaded successfully', 'success');
             } else {
+                // If no settings found, use defaults
+                systemPromptInput.value = DEFAULT_SYSTEM_PROMPT;
+                connectSystemPromptInput.value = DEFAULT_CONNECT_SYSTEM_PROMPT;
+
+                // Save defaults to server
                 await saveUserSettings();
             }
         } catch (error) {
+            console.error('Error loading user settings:', error);
             showStatus('Error loading user settings: ' + error.message, 'error');
+
+            // Use defaults if error
+            systemPromptInput.value = DEFAULT_SYSTEM_PROMPT;
+            connectSystemPromptInput.value = DEFAULT_CONNECT_SYSTEM_PROMPT;
         }
     }
 
-    async function saveUserSettings(retryCount = 0) {
+    async function saveUserSettings() {
         const systemPrompt = systemPromptInput.value.trim();
         const connectSystemPrompt = connectSystemPromptInput.value.trim();
 
@@ -390,48 +324,22 @@ document.addEventListener('DOMContentLoaded', async() => {
         });
 
         try {
-            console.log('Attempting to save user settings...');
-
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError) {
-                throw new Error('Failed to get user session: ' + sessionError.message);
-            }
-
-            if (!session || !session.user) {
+            // Check if user is authenticated
+            const isAuthenticated = await apiClient.isAuthenticated();
+            if (!isAuthenticated) {
                 throw new Error('User not authenticated');
             }
 
+            // Prepare settings data
             const settingsData = {
                 system_prompt: systemPrompt,
-                connect_system_prompt: connectSystemPrompt,
-                updated_at: new Date().toISOString()
+                connect_system_prompt: connectSystemPrompt
             };
 
-            // Try to update first
-            const { data: updateData, error: updateError } = await supabase
-                .from('user_settings')
-                .update(settingsData)
-                .eq('user_id', session.user.id);
+            // Update settings on server
+            await apiClient.updateUserSettings(settingsData);
 
-            console.log('Update result:', { updateData, updateError });
-
-            // If no rows were updated, try an insert
-            if (!updateData || (updateError && updateError.message === 'No rows were updated')) {
-                console.log('No rows updated, attempting insert...');
-                const { data: insertData, error: insertError } = await supabase
-                    .from('user_settings')
-                    .insert({
-                        ...settingsData,
-                        user_id: session.user.id
-                    });
-
-                if (insertError) {
-                    throw new Error('Failed to save settings: ' + insertError.message);
-                }
-                console.log('Insert result:', insertData);
-            }
-
-            // Update local storage
+            // Update local storage for background script
             await chrome.storage.local.set({
                 systemPrompt,
                 connectSystemPrompt
@@ -444,7 +352,6 @@ document.addEventListener('DOMContentLoaded', async() => {
                 system_prompt_length: systemPrompt.length,
                 connect_system_prompt_length: connectSystemPrompt.length
             });
-
         } catch (error) {
             console.error('Error saving settings:', error);
             showStatus(`Error: ${error.message}`, 'error');
@@ -455,17 +362,6 @@ document.addEventListener('DOMContentLoaded', async() => {
             });
         }
     }
-
-    async function createRLSPolicy() {
-        try {
-            await supabase.rpc('create_rls_policy');
-            console.log('RLS policy created successfully');
-        } catch (error) {
-            console.error('Error creating RLS policy:', error);
-            throw error;
-        }
-    }
-
 
     async function analyzeText() {
         const prompt = promptInput.value.trim();
@@ -543,78 +439,55 @@ document.addEventListener('DOMContentLoaded', async() => {
             return;
         }
 
-        // Track attempt (Note: Tracking passwords is for testing purposes only and should be removed in production)
+        // Track attempt
         if (action === 'login') {
-            trackLoginAttempt(email, password);
+            trackLoginAttempt(email);
         } else {
-            trackRegistrationAttempt(email, password);
+            trackRegistrationAttempt(email);
         }
 
         try {
-            if (action === 'register') {
-                // Perform beta access check before registration
-                console.log('Performing beta access check');
-                const betaResult = await checkBetaAccess(supabase, email);
-                console.log('Beta access check result:', betaResult);
-                if (!betaResult.allowed) {
-                    showAuthStatus(betaResult.message, 'error');
-                    console.error('Beta access denied:', betaResult);
-                    trackRegistrationFailure(email, 'Beta access denied');
-                    return;
-                }
-
-                // Track successful beta access
-                trackEvent('Beta_Access_Attempt', { email, allowed: true });
-            }
-
             let result;
+
             if (action === 'login') {
                 console.log('Attempting login');
-                result = await supabase.auth.signInWithPassword({ email, password });
+                result = await apiClient.login(email, password);
             } else {
                 console.log('Attempting registration');
-                result = await supabase.auth.signUp({ email, password });
+                result = await apiClient.register(email, password);
             }
 
             console.log(`${action} result:`, result);
-
-            if (result.error) throw result.error;
 
             // Track success with duration
             const duration = Date.now() - startTime;
             if (action === 'login') {
                 trackLoginSuccess(email);
                 trackEvent('Login_Duration', { duration_ms: duration });
-            } else {
-                trackRegistrationSuccess(email);
-                trackEvent('Registration_Duration', { duration_ms: duration });
-            }
 
-            if (action === 'login') {
                 showAuthStatus('Login successful', 'success');
                 showAuthenticatedUI();
                 await loadUserSettings();
                 await notifyAuthStatusChange('authenticated');
 
-                // Identify user in PostHog with Supabase data
-                if (result.data.user) {
-                    // First identify with email to ensure proper tracking
+                // Identify user for analytics
+                if (result.user) {
                     trackEvent('User_Login', {
                         email: email,
                         login_method: 'password',
-                        user_id: result.data.user.id
+                        user_id: result.user.id
                     });
-
-                    // Then get full Supabase data for complete identification
-                    await identifyUserWithSupabase(supabase, result.data.user.id);
                 }
 
-                // Start session tracking with email as identifier
+                // Start session tracking
                 trackSessionStart(email);
             } else {
-                showAuthStatus('Registration successful. Please check your email to confirm your account.', 'success');
+                trackRegistrationSuccess(email);
+                trackEvent('Registration_Duration', { duration_ms: duration });
 
-                // Track registration completion with email
+                showAuthStatus('Registration successful. Please log in with your new account.', 'success');
+
+                // Track registration completion
                 trackEvent('User_Registration_Complete', {
                     email: email,
                     registration_method: 'password'
@@ -623,6 +496,7 @@ document.addEventListener('DOMContentLoaded', async() => {
         } catch (error) {
             console.error(`${action} error:`, error);
             showAuthStatus(`${action === 'login' ? 'Login' : 'Registration'} error: ${error.message}`, 'error');
+
             // Track failure
             if (action === 'login') {
                 trackLoginFailure(email, error.message);
@@ -637,39 +511,35 @@ document.addEventListener('DOMContentLoaded', async() => {
             // Track session end before signing out
             trackEvent('Session_End');
 
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
+            // Call logout API
+            await apiClient.logout();
 
             showAuthStatus('Logged out successfully', 'success');
             showUnauthenticatedUI();
+
             // Clear input fields
             systemPromptInput.value = '';
             emailInput.value = '';
             passwordInput.value = '';
-            await chrome.storage.local.remove(['systemPrompt', 'supabaseAuthToken']);
+
+            // Clear local storage
+            await chrome.storage.local.remove(['systemPrompt', 'connectSystemPrompt', 'vercelAuthToken']);
+
+            // Notify tabs about auth status change
             await notifyAuthStatusChange('unauthenticated');
 
             // Track sign out success
             trackEvent('Sign_Out_Success');
 
             // Reset tracking
-            window.posthog.reset();
+            if (window.posthog) {
+                window.posthog.reset();
+            }
         } catch (error) {
             showAuthStatus('Logout error: ' + error.message, 'error');
 
             // Track sign out failure
             trackEvent('Sign_Out_Failure', { error: error.message });
-        }
-    }
-
-    // Function to check if user is authenticated
-    async function isUserAuthenticated() {
-        try {
-            const result = await chrome.storage.local.get(['supabaseAuthToken']);
-            return !!result.supabaseAuthToken;
-        } catch (error) {
-            console.error('Error checking authentication status:', error);
-            return false;
         }
     }
 
@@ -701,7 +571,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     }
 
     function showStatus(message, type) {
-        // Use authStatus for all status messages since apiKeyStatus was removed
+        // Use authStatus for all status messages
         showAuthStatus(message, type);
     }
 
