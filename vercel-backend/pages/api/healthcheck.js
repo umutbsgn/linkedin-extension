@@ -1,18 +1,24 @@
+// Healthcheck endpoint
 export default function handler(req, res) {
-    // Add CORS headers
+    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // Handle OPTIONS request for CORS preflight
+    // Handle preflight requests
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    res.status(200).json({
+    // Only allow GET requests
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Return a simple health check response
+    return res.status(200).json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        message: 'Vercel deployment is working correctly',
-        version: '1.0.1'
+        message: 'Server is healthy'
     });
 }

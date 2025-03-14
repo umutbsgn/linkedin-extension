@@ -1,7 +1,7 @@
 // Configuration for the LinkedIn AI Assistant browser extension
 
 // Default Vercel backend URL (will be overridden by the value in Chrome storage if available)
-const DEFAULT_VERCEL_BACKEND_URL = 'https://linkedin-extension-j5wswgs0v-umutbsgns-projects.vercel.app';
+const DEFAULT_VERCEL_BACKEND_URL = 'https://vercel-backend-nssek310a-umutbsgns-projects.vercel.app';
 
 // Get the Vercel backend URL from Chrome storage or use the default
 export const getVercelBackendUrl = async() => {
