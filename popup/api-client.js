@@ -86,7 +86,10 @@ class ApiClient {
 
         try {
             const url = endpoint.startsWith('http') ? endpoint : API_ENDPOINTS[endpoint] || endpoint;
+            console.log(`Making ${method} request to: ${url}`);
+
             const headers = await this.createHeaders(includeAuth);
+            console.log('Request headers:', headers);
 
             const requestOptions = {
                 method,
@@ -95,29 +98,53 @@ class ApiClient {
 
             if (body) {
                 requestOptions.body = JSON.stringify(body);
+                console.log('Request body:', JSON.stringify(body, null, 2));
             }
 
+            console.log('Sending request with options:', requestOptions);
             const response = await fetch(url, requestOptions);
+            console.log(`Response status: ${response.status} ${response.statusText}`);
 
             // Handle authentication errors
             if (response.status === 401) {
                 console.error('Authentication error:', response.statusText);
                 await this.clearToken();
-                throw new Error('Authentication failed. Please log in again.');
+                throw new Error(`Authentication failed (401): ${response.statusText}. Please log in again.`);
             }
 
             // Handle other errors
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMessage = errorData.error || response.statusText;
-                throw new Error(`API request failed: ${response.status} - ${errorMessage}`);
+                let errorMessage = `Status: ${response.status} ${response.statusText}`;
+                let errorDetails = '';
+
+                try {
+                    const errorData = await response.json();
+                    console.error('Error response data:', errorData);
+                    errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+                    errorDetails = JSON.stringify(errorData, null, 2);
+                } catch (parseError) {
+                    console.error('Error parsing error response:', parseError);
+                    const errorText = await response.text().catch(() => '');
+                    errorDetails = errorText || 'No response body';
+                }
+
+                const error = new Error(`API request failed: ${errorMessage}`);
+                error.status = response.status;
+                error.details = errorDetails;
+                error.url = url;
+                throw error;
             }
 
             // Parse response
             const data = await response.json();
+            console.log('Response data:', JSON.stringify(data, null, 2));
             return data;
         } catch (error) {
             console.error(`API request error for ${endpoint}:`, error);
+            // Add more context to the error
+            if (!error.url) {
+                error.url = endpoint.startsWith('http') ? endpoint : API_ENDPOINTS[endpoint] || endpoint;
+            }
             throw error;
         }
     }
@@ -125,6 +152,9 @@ class ApiClient {
     // Authentication methods
     async login(email, password) {
         try {
+            console.log(`Attempting login for email: ${email}`);
+            console.log(`Using login endpoint: ${API_ENDPOINTS.LOGIN}`);
+
             const data = await this.request(API_ENDPOINTS.LOGIN, {
                 method: 'POST',
                 body: { email, password },
@@ -133,15 +163,28 @@ class ApiClient {
 
             // Handle Supabase response format
             if (data.access_token) {
+                console.log('Login successful, received access token');
                 await this.setToken(data.access_token);
                 return { success: true, user: data.user };
             } else if (data.error) {
+                console.error('Login error from server:', data.error);
                 throw new Error(data.error_description || data.error || 'Login failed');
             } else {
+                console.error('Login response missing access token:', data);
                 throw new Error('No token received from server');
             }
         } catch (error) {
             console.error('Login error:', error);
+            // Add more context to the error
+            if (error.message.includes('API request failed')) {
+                console.error('API request details:', {
+                    endpoint: API_ENDPOINTS.LOGIN,
+                    error: error.message,
+                    status: error.status,
+                    details: error.details,
+                    url: error.url
+                });
+            }
             throw error;
         }
     }
