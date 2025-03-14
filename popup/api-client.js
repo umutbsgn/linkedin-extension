@@ -131,9 +131,12 @@ class ApiClient {
                 includeAuth: false
             });
 
-            if (data.token) {
-                await this.setToken(data.token);
+            // Handle Supabase response format
+            if (data.access_token) {
+                await this.setToken(data.access_token);
                 return { success: true, user: data.user };
+            } else if (data.error) {
+                throw new Error(data.error_description || data.error || 'Login failed');
             } else {
                 throw new Error('No token received from server');
             }
@@ -151,7 +154,14 @@ class ApiClient {
                 includeAuth: false
             });
 
-            return { success: true, message: data.message };
+            // Handle Supabase response format
+            if (data.id) {
+                return { success: true, message: 'Registration successful. Please check your email to confirm your account.' };
+            } else if (data.error) {
+                throw new Error(data.error_description || data.error || 'Registration failed');
+            } else {
+                return { success: true, message: data.message || 'Registration successful' };
+            }
         } catch (error) {
             console.error('Registration error:', error);
             throw error;
@@ -177,7 +187,43 @@ class ApiClient {
     // User methods
     async getUserProfile() {
         try {
-            return await this.request(API_ENDPOINTS.USER_PROFILE);
+            // Get user ID from token
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('Authentication required');
+            }
+
+            // Decode the JWT token to get the user ID
+            const payload = token.split('.')[1];
+            if (!payload) {
+                throw new Error('Invalid token format');
+            }
+
+            // Decode the base64 payload
+            const decodedPayload = JSON.parse(atob(payload));
+            const userId = decodedPayload.sub || decodedPayload.user_id;
+
+            if (!userId) {
+                throw new Error('User ID not found in token');
+            }
+
+            // Format the request for the Supabase endpoint
+            const response = await this.request(API_ENDPOINTS.USER_SETTINGS, {
+                method: 'POST',
+                body: {
+                    userId,
+                    token,
+                    action: 'get'
+                }
+            });
+
+            // If we get an array, return the first item
+            if (Array.isArray(response) && response.length > 0) {
+                return response[0];
+            }
+
+            // Otherwise, return the response as is
+            return response;
         } catch (error) {
             console.error('Get user profile error:', error);
             throw error;
@@ -186,9 +232,37 @@ class ApiClient {
 
     async updateUserSettings(settings) {
         try {
+            // Get user ID from token
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('Authentication required');
+            }
+
+            // Decode the JWT token to get the user ID
+            // JWT tokens are in the format: header.payload.signature
+            // We need the payload part which is the second part
+            const payload = token.split('.')[1];
+            if (!payload) {
+                throw new Error('Invalid token format');
+            }
+
+            // Decode the base64 payload
+            const decodedPayload = JSON.parse(atob(payload));
+            const userId = decodedPayload.sub || decodedPayload.user_id;
+
+            if (!userId) {
+                throw new Error('User ID not found in token');
+            }
+
+            // Format the request for the Supabase endpoint
             return await this.request(API_ENDPOINTS.USER_SETTINGS, {
                 method: 'POST',
-                body: settings
+                body: {
+                    userId,
+                    token,
+                    action: 'update',
+                    data: settings
+                }
             });
         } catch (error) {
             console.error('Update user settings error:', error);
