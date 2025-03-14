@@ -228,6 +228,15 @@ class ApiClient {
     }
 
     // User methods
+    async getUserSettings() {
+        try {
+            return await this.getUserProfile();
+        } catch (error) {
+            console.error('Get user settings error:', error);
+            throw error;
+        }
+    }
+
     async getUserProfile() {
         try {
             // Get user ID from token
