@@ -124,12 +124,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     // Initialize subscription manager
     let subscriptionManager = null;
 
-    // Add event listener for subscription tab
-    subscriptionTab.addEventListener('click', () => switchTab('subscription'));
-
-    // Add event listener for settings tab
-    const settingsTab = document.getElementById('settingsTab');
-    settingsTab.addEventListener('click', () => switchTab('settings'));
+    // Subscription and Settings tabs removed
 
     // Vercel backend URL settings removed
 
@@ -138,21 +133,13 @@ document.addEventListener('DOMContentLoaded', async() => {
         let previousTab = 'posts';
         if (connectTab.classList.contains('active')) {
             previousTab = 'connect';
-        } else if (subscriptionTab.classList.contains('active')) {
-            previousTab = 'subscription';
-        } else if (settingsTab.classList.contains('active')) {
-            previousTab = 'settings';
         }
 
         // Reset all tabs
         postsTab.classList.remove('active');
         connectTab.classList.remove('active');
-        subscriptionTab.classList.remove('active');
-        settingsTab.classList.remove('active');
         postsContent.classList.remove('active');
         connectContent.classList.remove('active');
-        subscriptionContent.classList.remove('active');
-        settingsContent.classList.remove('active');
 
         // Activate selected tab
         if (tab === 'posts') {
@@ -161,22 +148,6 @@ document.addEventListener('DOMContentLoaded', async() => {
         } else if (tab === 'connect') {
             connectTab.classList.add('active');
             connectContent.classList.add('active');
-        } else if (tab === 'subscription') {
-            subscriptionTab.classList.add('active');
-            subscriptionContent.classList.add('active');
-
-            // Initialize subscription manager if not already done
-            if (!subscriptionManager) {
-                subscriptionManager = createSubscriptionManager(
-                    subscriptionContainer,
-                    apiClient,
-                    showStatus
-                );
-                subscriptionManager.loadSubscriptionStatus();
-            }
-        } else if (tab === 'settings') {
-            settingsTab.classList.add('active');
-            settingsContent.classList.add('active');
         }
 
         // Track tab change
