@@ -311,6 +311,31 @@ app.post('/api/analytics/track', async(req, res) => {
     res.status(200).json({ message: 'Analytics tracking endpoint' });
 });
 
+// PostHog Configuration endpoints
+app.get('/api/config/posthog-key', (req, res) => {
+    // Get the PostHog API key from environment variables
+    const posthogApiKey = process.env.POSTHOG_API_KEY;
+
+    if (!posthogApiKey) {
+        return res.status(500).json({ error: 'PostHog API key not configured' });
+    }
+
+    // Return the PostHog API key
+    return res.status(200).json({ key: posthogApiKey });
+});
+
+app.get('/api/config/posthog-host', (req, res) => {
+    // Get the PostHog API host from environment variables
+    const posthogApiHost = process.env.POSTHOG_API_HOST;
+
+    if (!posthogApiHost) {
+        return res.status(500).json({ error: 'PostHog API host not configured' });
+    }
+
+    // Return the PostHog API host
+    return res.status(200).json({ host: posthogApiHost });
+});
+
 // Stripe Configuration endpoints
 app.get('/api/config/stripe-publishable-key', (req, res) => {
     // Get the Stripe publishable key from environment variables
