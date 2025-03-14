@@ -1,9 +1,50 @@
 // analytics.js
-export const POSTHOG_API_KEY = 'phc_7teyAeNgBjZ2rRuu1yiPP8mJn1lg7SjZ4hhiJgmV5ar';
-export const POSTHOG_API_HOST = 'https://eu.i.posthog.com';
+import { API_ENDPOINTS } from '../config.js';
+
+// Default values for PostHog configuration (will be overridden by API calls)
+let posthogApiKey = '';
+let posthogApiHost = '';
 
 // Check if we're in a background script or content script/popup context
 const isBackgroundScript = typeof window === 'undefined';
+
+// Fetch PostHog configuration from the backend
+export async function fetchPostHogConfig() {
+    try {
+        // Fetch PostHog API key
+        const keyResponse = await fetch(API_ENDPOINTS.POSTHOG_API_KEY);
+        if (keyResponse.ok) {
+            const keyData = await keyResponse.json();
+            posthogApiKey = keyData.key;
+        } else {
+            console.error('Failed to fetch PostHog API key:', keyResponse.status, keyResponse.statusText);
+        }
+
+        // Fetch PostHog API host
+        const hostResponse = await fetch(API_ENDPOINTS.POSTHOG_API_HOST);
+        if (hostResponse.ok) {
+            const hostData = await hostResponse.json();
+            posthogApiHost = hostData.host;
+        } else {
+            console.error('Failed to fetch PostHog API host:', hostResponse.status, hostResponse.statusText);
+        }
+
+        return { posthogApiKey, posthogApiHost };
+    } catch (error) {
+        console.error('Error fetching PostHog configuration:', error);
+        return { posthogApiKey: '', posthogApiHost: '' };
+    }
+}
+
+// Get PostHog API key
+export function getPostHogApiKey() {
+    return posthogApiKey;
+}
+
+// Get PostHog API host
+export function getPostHogApiHost() {
+    return posthogApiHost;
+}
 
 // Create a wrapper for PostHog that works in both contexts
 const getPostHog = () => {
@@ -33,7 +74,7 @@ const getPostHog = () => {
     }
 };
 
-export function initAnalytics(options = {}) {
+export async function initAnalytics(options = {}) {
     if (isBackgroundScript) {
         console.log('PostHog initialization skipped in background script');
         return;
@@ -44,12 +85,28 @@ export function initAnalytics(options = {}) {
         return;
     }
 
-    window.posthog.init(POSTHOG_API_KEY, {
-        api_host: POSTHOG_API_HOST,
-        person_profiles: 'identified_only',
-        ...options
-    });
-    console.log('PostHog Analytics initialized');
+    try {
+        // Fetch PostHog configuration if not already fetched
+        if (!posthogApiKey || !posthogApiHost) {
+            const config = await fetchPostHogConfig();
+            posthogApiKey = config.posthogApiKey;
+            posthogApiHost = config.posthogApiHost;
+        }
+
+        if (!posthogApiKey || !posthogApiHost) {
+            console.error('PostHog configuration not available');
+            return;
+        }
+
+        window.posthog.init(posthogApiKey, {
+            api_host: posthogApiHost,
+            person_profiles: 'identified_only',
+            ...options
+        });
+        console.log('PostHog Analytics initialized with API key from server');
+    } catch (error) {
+        console.error('Error initializing PostHog:', error);
+    }
 }
 
 

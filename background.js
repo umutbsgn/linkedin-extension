@@ -1,6 +1,25 @@
 import { createClient } from './popup/supabase-client.js';
-import { POSTHOG_API_KEY, POSTHOG_API_HOST } from './popup/analytics.js';
+import { getPostHogApiKey, getPostHogApiHost, fetchPostHogConfig } from './popup/analytics.js';
 import { API_ENDPOINTS } from './config.js';
+
+// Initialize PostHog configuration
+let posthogApiKey = '';
+let posthogApiHost = '';
+
+// Fetch PostHog configuration
+async function initPostHogConfig() {
+    try {
+        const config = await fetchPostHogConfig();
+        posthogApiKey = config.posthogApiKey;
+        posthogApiHost = config.posthogApiHost;
+        console.log('PostHog configuration initialized in background script');
+    } catch (error) {
+        console.error('Error initializing PostHog configuration:', error);
+    }
+}
+
+// Initialize PostHog configuration
+initPostHogConfig();
 
 // Direct implementation of trackEvent for background script
 async function trackEvent(eventName, properties = {}) {
@@ -51,13 +70,31 @@ async function trackEvent(eventName, properties = {}) {
 
     // Send directly to PostHog API
     try {
-        fetch(`${POSTHOG_API_HOST}/capture/`, {
+        // Get the current PostHog API key and host
+        const apiKey = getPostHogApiKey() || posthogApiKey;
+        const apiHost = getPostHogApiHost() || posthogApiHost;
+
+        // If we don't have the API key or host, try to fetch them
+        if (!apiKey || !apiHost) {
+            console.log('PostHog configuration not available, fetching...');
+            const config = await fetchPostHogConfig();
+            posthogApiKey = config.posthogApiKey;
+            posthogApiHost = config.posthogApiHost;
+        }
+
+        // Check if we have the API key and host
+        if (!posthogApiKey || !posthogApiHost) {
+            console.error('PostHog configuration not available, skipping event tracking');
+            return;
+        }
+
+        fetch(`${posthogApiHost}/capture/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                api_key: POSTHOG_API_KEY,
+                api_key: posthogApiKey,
                 event: eventName,
                 properties: eventProperties,
                 distinct_id: userEmail || 'anonymous_user', // Use email if available, otherwise anonymous
