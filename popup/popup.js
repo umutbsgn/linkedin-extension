@@ -124,7 +124,17 @@ document.addEventListener('DOMContentLoaded', async() => {
     // Initialize subscription manager
     let subscriptionManager = null;
 
-    // Subscription and Settings tabs removed
+    // Load subscription data when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        if (subscriptionContainer) {
+            subscriptionManager = createSubscriptionManager(
+                subscriptionContainer,
+                apiClient,
+                showStatus
+            );
+            subscriptionManager.loadSubscriptionStatus();
+        }
+    });
 
     // Vercel backend URL settings removed
 
