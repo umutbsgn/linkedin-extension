@@ -63,6 +63,7 @@
                         <button id="postsTab" class="tab-button active">Posts</button>
                         <button id="connectTab" class="tab-button">Connect</button>
                         <button id="subscriptionTab" class="tab-button">Subscription</button>
+                        <button id="settingsTab" class="tab-button">Settings</button>
                     </div>
                     <div id="postsContent" class="tab-content active">
                         <div class="input-group">
@@ -99,6 +100,23 @@
                             <!-- Subscription content will be dynamically generated -->
                         </div>
                     </div>
+                    <div id="settingsContent" class="tab-content">
+                        <div class="input-group">
+                            <label for="vercelBackendUrl">Vercel Backend URL</label>
+                            <input type="text" id="vercelBackendUrl" placeholder="Enter Vercel backend URL...">
+                            <div class="button-group">
+                                <button id="saveVercelUrl" class="primary-button">
+                                    <span class="button-icon">💾</span>
+                                    Save
+                                </button>
+                                <button id="testVercelConnection" class="primary-button">
+                                    <span class="button-icon">🔄</span>
+                                    Test Connection
+                                </button>
+                            </div>
+                            <div id="vercelConnectionStatus" class="status-message"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -120,14 +138,9 @@
     </div>
 
     <script src="../lib/posthog/posthog.js"></script>
+    <script src="posthog-init.js"></script>
     <script type="module" src="analytics.js"></script>
     <script type="module" src="popup.js"></script>
-    <script>
-        // Initialize PostHog
-        window.posthog = window.posthog || function() {
-            (window.posthog.q = window.posthog.q || []).push(arguments)
-        };
-    </script>
 </body>
 
 </html>

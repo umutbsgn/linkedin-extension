@@ -3,19 +3,16 @@
 export default function corsMiddleware(req, res, next) {
     // Get allowed origins from environment variable
     const allowedOrigins = process.env.ALLOWED_ORIGINS ?
-        process.env.ALLOWED_ORIGINS.split(',') :
-        ['chrome-extension://your-extension-id'];
+        process.env.ALLOWED_ORIGINS.split(',') : ['chrome-extension://*'];
 
     const origin = req.headers.origin;
 
-    // Check if the origin is allowed
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-        // Set CORS headers
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-        res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
+    // Always set CORS headers to allow requests from any origin
+    // This is more permissive for development and testing
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     // Handle preflight requests
     if (req.method === 'OPTIONS') {

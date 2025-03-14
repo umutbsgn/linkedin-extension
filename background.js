@@ -1,6 +1,6 @@
 import { createClient } from './popup/supabase-client.js';
 import { getPostHogApiKey, getPostHogApiHost, fetchPostHogConfig } from './popup/analytics.js';
-import { API_ENDPOINTS } from './config.js';
+import { API_ENDPOINTS, getApiEndpoint } from './config.js';
 
 // Initialize PostHog configuration
 let posthogApiKey = '';
@@ -121,7 +121,8 @@ let supabase = null;
 async function fetchSupabaseConfig() {
     try {
         // Fetch Supabase URL
-        const urlResponse = await fetch(API_ENDPOINTS.SUPABASE_URL);
+        const supabaseUrlEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_URL);
+        const urlResponse = await fetch(supabaseUrlEndpoint);
         if (urlResponse.ok) {
             const urlData = await urlResponse.json();
             supabaseUrl = urlData.url;
@@ -130,7 +131,8 @@ async function fetchSupabaseConfig() {
         }
 
         // Fetch Supabase key
-        const keyResponse = await fetch(API_ENDPOINTS.SUPABASE_KEY);
+        const supabaseKeyEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_KEY);
+        const keyResponse = await fetch(supabaseKeyEndpoint);
         if (keyResponse.ok) {
             const keyData = await keyResponse.json();
             supabaseKey = keyData.key;
@@ -167,7 +169,8 @@ async function callAnthropicAPI(prompt, systemPrompt) {
     });
 
     try {
-        const response = await fetch(API_ENDPOINTS.ANALYZE, {
+        const analyzeEndpoint = await getApiEndpoint(API_ENDPOINTS.ANALYZE);
+        const response = await fetch(analyzeEndpoint, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"

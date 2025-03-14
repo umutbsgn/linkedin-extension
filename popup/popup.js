@@ -14,7 +14,7 @@ import {
     identifyUserWithSupabase
 } from './analytics.js';
 
-import { API_ENDPOINTS } from '../config.js';
+import { API_ENDPOINTS, getApiEndpoint, getVercelBackendUrl, setVercelBackendUrl } from '../config.js';
 
 // Initialize with empty values, will be fetched from the server
 let supabaseUrl = '';
@@ -25,7 +25,8 @@ let supabase = null;
 async function fetchSupabaseConfig() {
     try {
         // Fetch Supabase URL
-        const urlResponse = await fetch(API_ENDPOINTS.SUPABASE_URL);
+        const supabaseUrlEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_URL);
+        const urlResponse = await fetch(supabaseUrlEndpoint);
         if (urlResponse.ok) {
             const urlData = await urlResponse.json();
             supabaseUrl = urlData.url;
@@ -34,7 +35,8 @@ async function fetchSupabaseConfig() {
         }
 
         // Fetch Supabase key
-        const keyResponse = await fetch(API_ENDPOINTS.SUPABASE_KEY);
+        const supabaseKeyEndpoint = await getApiEndpoint(API_ENDPOINTS.SUPABASE_KEY);
+        const keyResponse = await fetch(supabaseKeyEndpoint);
         if (keyResponse.ok) {
             const keyData = await keyResponse.json();
             supabaseKey = keyData.key;
@@ -137,6 +139,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     const postsContent = document.getElementById('postsContent');
     const connectContent = document.getElementById('connectContent');
     const subscriptionContent = document.getElementById('subscriptionContent');
+    const settingsContent = document.getElementById('settingsContent');
     const subscriptionContainer = document.getElementById('subscriptionContainer');
 
     const DEFAULT_SYSTEM_PROMPT = `You are a flexible LinkedIn communication partner. Your task is to analyze the author's style, respond accordingly, and provide casual value. Your response should be concise, maximum 120 characters, and written directly in the author's style.`;
@@ -148,7 +151,8 @@ document.addEventListener('DOMContentLoaded', async() => {
     // Fetch Anthropic API key from the server
     async function fetchAnthropicApiKey() {
         try {
-            const response = await fetch(API_ENDPOINTS.ANTHROPIC_API_KEY);
+            const anthropicKeyEndpoint = await getApiEndpoint(API_ENDPOINTS.ANTHROPIC_API_KEY);
+            const response = await fetch(anthropicKeyEndpoint);
             if (response.ok) {
                 const data = await response.json();
                 anthropicApiKey = data.key;
@@ -190,6 +194,85 @@ document.addEventListener('DOMContentLoaded', async() => {
     // Add event listener for subscription tab
     subscriptionTab.addEventListener('click', () => switchTab('subscription'));
 
+    // Add event listener for settings tab
+    const settingsTab = document.getElementById('settingsTab');
+    settingsTab.addEventListener('click', () => switchTab('settings'));
+
+    // Add event listeners for Vercel URL settings
+    const vercelBackendUrlInput = document.getElementById('vercelBackendUrl');
+    const saveVercelUrlButton = document.getElementById('saveVercelUrl');
+    const testVercelConnectionButton = document.getElementById('testVercelConnection');
+    const vercelConnectionStatus = document.getElementById('vercelConnectionStatus');
+
+    // Load the current Vercel URL
+    loadVercelBackendUrl();
+
+    // Add event listeners for Vercel URL settings
+    saveVercelUrlButton.addEventListener('click', saveVercelBackendUrl);
+    testVercelConnectionButton.addEventListener('click', testVercelConnection);
+
+    // Function to load the Vercel backend URL from storage
+    async function loadVercelBackendUrl() {
+        try {
+            const url = await getVercelBackendUrl();
+            vercelBackendUrlInput.value = url;
+        } catch (error) {
+            console.error('Error loading Vercel backend URL:', error);
+            showVercelConnectionStatus('Error loading Vercel backend URL', 'error');
+        }
+    }
+
+    // Function to save the Vercel backend URL to storage
+    async function saveVercelBackendUrl() {
+        const url = vercelBackendUrlInput.value.trim();
+        if (!url) {
+            showVercelConnectionStatus('Please enter a valid URL', 'error');
+            return;
+        }
+
+        try {
+            await setVercelBackendUrl(url);
+            showVercelConnectionStatus('Vercel backend URL saved successfully', 'success');
+
+            // Test the connection after saving
+            await testVercelConnection();
+        } catch (error) {
+            console.error('Error saving Vercel backend URL:', error);
+            showVercelConnectionStatus('Error saving Vercel backend URL: ' + error.message, 'error');
+        }
+    }
+
+    // Function to test the connection to the Vercel backend
+    async function testVercelConnection() {
+        showVercelConnectionStatus('Testing connection...', 'info');
+
+        try {
+            const url = await getVercelBackendUrl();
+            const healthcheckEndpoint = await getApiEndpoint('/api/healthcheck');
+
+            const response = await fetch(healthcheckEndpoint);
+
+            if (response.ok) {
+                const data = await response.json();
+                showVercelConnectionStatus('Connection successful! Server is healthy.', 'success');
+            } else {
+                showVercelConnectionStatus(`Connection failed: ${response.status} ${response.statusText}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error testing Vercel connection:', error);
+            showVercelConnectionStatus('Error testing connection: ' + error.message, 'error');
+        }
+    }
+
+    // Function to show Vercel connection status
+    function showVercelConnectionStatus(message, type) {
+        vercelConnectionStatus.textContent = message;
+        vercelConnectionStatus.className = `status-message ${type}`;
+        setTimeout(() => {
+            vercelConnectionStatus.className = 'status-message';
+        }, 5000);
+    }
+
     function switchTab(tab) {
         // Determine previous tab
         let previousTab = 'posts';
@@ -197,15 +280,19 @@ document.addEventListener('DOMContentLoaded', async() => {
             previousTab = 'connect';
         } else if (subscriptionTab.classList.contains('active')) {
             previousTab = 'subscription';
+        } else if (settingsTab.classList.contains('active')) {
+            previousTab = 'settings';
         }
 
         // Reset all tabs
         postsTab.classList.remove('active');
         connectTab.classList.remove('active');
         subscriptionTab.classList.remove('active');
+        settingsTab.classList.remove('active');
         postsContent.classList.remove('active');
         connectContent.classList.remove('active');
         subscriptionContent.classList.remove('active');
+        settingsContent.classList.remove('active');
 
         // Activate selected tab
         if (tab === 'posts') {
@@ -227,6 +314,12 @@ document.addEventListener('DOMContentLoaded', async() => {
                 );
                 subscriptionManager.loadSubscriptionStatus();
             }
+        } else if (tab === 'settings') {
+            settingsTab.classList.add('active');
+            settingsContent.classList.add('active');
+
+            // Refresh Vercel URL when switching to settings tab
+            loadVercelBackendUrl();
         }
 
         // Track tab change
