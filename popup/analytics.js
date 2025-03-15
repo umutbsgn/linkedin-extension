@@ -94,7 +94,7 @@ export async function initAnalytics(options = {}) {
         }
 
         if (!posthogApiKey || !posthogApiHost) {
-            console.log('PostHog configuration not available, using default values');
+            console.log('PostHog configuration not available using default values');
             // Use default values for development/testing
             posthogApiKey = 'phc_placeholder';
             posthogApiHost = 'https://app.posthog.com';
