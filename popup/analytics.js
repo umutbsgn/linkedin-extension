@@ -92,14 +92,24 @@ export function initAnalytics(options = {}) {
         return;
     }
 
-    // We still initialize PostHog client-side for backward compatibility
-    // but actual tracking will go through the Vercel backend
-    window.posthog.init(POSTHOG_API_KEY, {
-        api_host: POSTHOG_API_HOST,
-        person_profiles: 'identified_only',
-        ...options
-    });
-    console.log('PostHog Analytics initialized');
+    // Check if PostHog configuration is available
+    if (!POSTHOG_API_KEY || !POSTHOG_API_HOST) {
+        console.error('PostHog configuration not available, tracking will be disabled');
+        return;
+    }
+
+    try {
+        // We still initialize PostHog client-side for backward compatibility
+        // but actual tracking will go through the Vercel backend
+        window.posthog.init(POSTHOG_API_KEY, {
+            api_host: POSTHOG_API_HOST,
+            person_profiles: 'identified_only',
+            ...options
+        });
+        console.log('PostHog Analytics initialized');
+    } catch (error) {
+        console.error('Error initializing PostHog:', error);
+    }
 }
 
 
@@ -150,6 +160,11 @@ export function trackEvent(eventName, properties = {}) {
         }).catch(error => {
             console.error(`Error sending event to tracking endpoint: ${error}`);
         });
+
+        // Also try to use PostHog directly if available
+        if (window.posthog && POSTHOG_API_KEY && POSTHOG_API_HOST) {
+            window.posthog.capture(eventName, eventProperties);
+        }
 
         console.log(`Event tracked via Vercel: ${eventName}`, eventProperties);
     } catch (error) {
