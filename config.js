@@ -26,7 +26,7 @@ export const API_ENDPOINTS = {
     // Analytics
     TRACK: `${VERCEL_BACKEND_URL}/api/analytics/track`,
 
-    // PostHog Configuration
+    // PostHog Configuration - using direct endpoints in index.js
     POSTHOG_API_KEY: `${VERCEL_BACKEND_URL}/api/config/posthog-key`,
     POSTHOG_API_HOST: `${VERCEL_BACKEND_URL}/api/config/posthog-host`,
 
