@@ -38,7 +38,7 @@
         }
     },
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.anthropic.com https://fslbhbywcxqmqhwdcgcl.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.vercel.app http://localhost:3000 http://localhost:3001"
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.anthropic.com https://fslbhbywcxqmqhwdcgcl.supabase.co https://eu.i.posthog.com https://eu-assets.i.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://app.posthog.com https://*.vercel.app http://localhost:3000 http://localhost:3001"
     },
     "web_accessible_resources": [{
         "resources": [
