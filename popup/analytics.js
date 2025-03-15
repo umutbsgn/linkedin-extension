@@ -95,8 +95,10 @@ export async function initAnalytics(options = {}) {
 
         // Check if configuration was loaded successfully
         if (!posthogApiKey || !posthogApiHost) {
-            console.error('PostHog configuration not available');
-            return { success: false, reason: 'config_not_available' };
+            console.log('PostHog configuration not available, using default values');
+            // Use default values for development/testing
+            posthogApiKey = 'phc_placeholder';
+            posthogApiHost = 'https://eu.i.posthog.com';
         }
 
         // Initialize PostHog
