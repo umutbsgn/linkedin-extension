@@ -31,7 +31,7 @@ async function initPostHogConfig() {
         POSTHOG_API_KEY = key;
         POSTHOG_API_HOST = host;
 
-        console.log('PostHog configuration initialized');
+        console.log('PostHog configuration initialized from server');
         return true;
     } catch (error) {
         console.error('Error initializing PostHog configuration:', error);
