@@ -16,26 +16,39 @@ const isBackgroundScript = typeof window === 'undefined';
 async function initPostHogConfig() {
     try {
         // Fetch PostHog configuration from Vercel backend
-        const keyResponse = await fetch(API_ENDPOINTS.POSTHOG_API_KEY);
-        const hostResponse = await fetch(API_ENDPOINTS.POSTHOG_API_HOST);
+        try {
+            const keyResponse = await fetch(API_ENDPOINTS.POSTHOG_API_KEY);
+            const hostResponse = await fetch(API_ENDPOINTS.POSTHOG_API_HOST);
 
-        if (!keyResponse.ok || !hostResponse.ok) {
-            console.error('Failed to fetch PostHog configuration');
-            // Don't set default values, tracking will be disabled
-            return false;
+            if (keyResponse.ok && hostResponse.ok) {
+                const keyData = await keyResponse.json();
+                const hostData = await hostResponse.json();
+
+                // Check if the response has the expected structure
+                if (keyData && keyData.key && hostData && hostData.host) {
+                    POSTHOG_API_KEY = keyData.key;
+                    POSTHOG_API_HOST = hostData.host;
+                    console.log('PostHog configuration initialized from server');
+                    return true;
+                } else {
+                    console.error('Invalid PostHog configuration format:', { keyData, hostData });
+                }
+            } else {
+                console.error('Failed to fetch PostHog configuration:',
+                    keyResponse.status, keyResponse.statusText,
+                    hostResponse.status, hostResponse.statusText);
+            }
+        } catch (fetchError) {
+            console.error('Error fetching PostHog configuration:', fetchError);
         }
 
-        const { key } = await keyResponse.json();
-        const { host } = await hostResponse.json();
-
-        POSTHOG_API_KEY = key;
-        POSTHOG_API_HOST = host;
-
-        console.log('PostHog configuration initialized from server');
+        // If we couldn't fetch from the server, use default values for development
+        console.warn('Using default PostHog configuration for development');
+        POSTHOG_API_KEY = 'phc_7teyAeNgBjZ2rRuu1yiPP8mJn1lg7SjZ4hhiJgmV5ar';
+        POSTHOG_API_HOST = 'https://eu.i.posthog.com';
         return true;
     } catch (error) {
         console.error('Error initializing PostHog configuration:', error);
-        // Don't set default values, tracking will be disabled
         return false;
     }
 }
