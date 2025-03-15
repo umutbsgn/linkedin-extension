@@ -71,43 +71,42 @@ async function trackEvent(eventName, properties = {}) {
         console.error('Error getting user information for tracking:', error);
     }
 
-    // Send directly to PostHog API
+    // Send to Vercel backend instead of directly to PostHog
     try {
-        // Get the current PostHog API key and host
-        const apiKey = getPostHogApiKey() || posthogApiKey;
-        const apiHost = getPostHogApiHost() || posthogApiHost;
-
-        // If we don't have the API key or host, try to fetch them
-        if (!apiKey || !apiHost) {
-            console.log('PostHog configuration not available, fetching...');
-            const config = await fetchPostHogConfig();
-            posthogApiKey = config.posthogApiKey;
-            posthogApiHost = config.posthogApiHost;
-        }
-
-        // Check if we have the API key and host
-        if (!posthogApiKey || !posthogApiHost) {
-            console.error('PostHog configuration not available, skipping event tracking');
-            return;
-        }
-
-        fetch(`${posthogApiHost}/capture/`, {
+        fetch(API_ENDPOINTS.TRACK, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                api_key: posthogApiKey,
-                event: eventName,
+                eventName: eventName,
                 properties: eventProperties,
-                distinct_id: userId,
-                timestamp: new Date().toISOString()
+                distinctId: userId
             })
         }).catch(error => {
-            console.error(`Error sending event to PostHog: ${error}`);
+            console.error(`Error sending event to tracking endpoint: ${error}`);
+
+            // Fallback: Send directly to PostHog if Vercel endpoint fails
+            if (posthogApiKey && posthogApiHost) {
+                fetch(`${posthogApiHost}/capture/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        api_key: posthogApiKey,
+                        event: eventName,
+                        properties: eventProperties,
+                        distinct_id: userId,
+                        timestamp: new Date().toISOString()
+                    })
+                }).catch(innerError => {
+                    console.error(`Error sending event directly to PostHog: ${innerError}`);
+                });
+            }
         });
 
-        console.log(`Event tracked directly from background: ${eventName}`, eventProperties);
+        console.log(`Event tracked via Vercel backend: ${eventName}`, eventProperties);
     } catch (error) {
         console.error(`Error tracking event ${eventName}:`, error);
     }

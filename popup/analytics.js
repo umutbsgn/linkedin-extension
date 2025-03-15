@@ -77,12 +77,12 @@ const getPostHog = () => {
 export async function initAnalytics(options = {}) {
     if (isBackgroundScript) {
         console.log('PostHog initialization skipped in background script');
-        return;
+        return { success: false, reason: 'background_script' };
     }
 
     if (typeof window.posthog === 'undefined') {
         console.error('PostHog library not loaded');
-        return;
+        return { success: false, reason: 'library_not_loaded' };
     }
 
     try {
@@ -93,19 +93,27 @@ export async function initAnalytics(options = {}) {
             posthogApiHost = config.posthogApiHost;
         }
 
+        // Check if configuration was loaded successfully
         if (!posthogApiKey || !posthogApiHost) {
             console.error('PostHog configuration not available');
-            return;
+            return { success: false, reason: 'config_not_available' };
         }
 
+        // Initialize PostHog
         window.posthog.init(posthogApiKey, {
             api_host: posthogApiHost,
             person_profiles: 'identified_only',
+            loaded: function(posthog) {
+                console.log('PostHog loaded successfully');
+            },
             ...options
         });
+
         console.log('PostHog Analytics initialized with API key from server');
+        return { success: true };
     } catch (error) {
         console.error('Error initializing PostHog:', error);
+        return { success: false, reason: 'initialization_error', error: error.message };
     }
 }
 
@@ -115,16 +123,50 @@ export async function initAnalytics(options = {}) {
  */
 export function trackEvent(eventName, properties = {}) {
     try {
-        const posthog = getPostHog();
+        // If in background script, use the existing mechanism
+        if (isBackgroundScript) {
+            const posthog = getPostHog();
 
+            const eventProperties = {
+                timestamp: new Date().toISOString(),
+                context: 'background',
+                ...properties
+            };
+
+            posthog.capture(eventName, eventProperties);
+            console.log(`Event tracked via background: ${eventName}`, eventProperties);
+            return;
+        }
+
+        // In popup/content script, use the Vercel backend
         const eventProperties = {
             timestamp: new Date().toISOString(),
-            context: isBackgroundScript ? 'background' : 'content_or_popup',
+            context: 'content_or_popup',
             ...properties
         };
 
-        posthog.capture(eventName, eventProperties);
-        console.log(`Event tracked: ${eventName}`, eventProperties);
+        // Get user email if available
+        let distinctId = 'anonymous_user';
+        if (window.localStorage.getItem('userEmail')) {
+            distinctId = window.localStorage.getItem('userEmail');
+        }
+
+        // Send to Vercel backend
+        fetch(API_ENDPOINTS.TRACK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                eventName: eventName,
+                properties: eventProperties,
+                distinctId: distinctId
+            })
+        }).catch(error => {
+            console.error(`Error sending event to tracking endpoint: ${error}`);
+        });
+
+        console.log(`Event tracked via Vercel: ${eventName}`, eventProperties);
     } catch (error) {
         console.error(`Error tracking event ${eventName}:`, error);
     }
@@ -382,6 +424,11 @@ export function identifyUser(userId, userProperties = {}) {
     if (isBackgroundScript) {
         console.log(`User identification skipped in background script for: ${userId}`);
         return;
+    }
+
+    // Store user ID in localStorage for future tracking
+    if (userId) {
+        localStorage.setItem('userEmail', userId);
     }
 
     const posthog = getPostHog();
