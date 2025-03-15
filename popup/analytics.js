@@ -1,49 +1,56 @@
 // analytics.js
 import { API_ENDPOINTS } from '../config.js';
 
-// Default values for PostHog configuration (will be overridden by API calls)
-let posthogApiKey = '';
-let posthogApiHost = '';
+// These variables will be fetched from the Vercel backend
+let POSTHOG_API_KEY = null;
+let POSTHOG_API_HOST = null;
+
+// Export constants for backward compatibility
+export const POSTHOG_API_KEY_LEGACY = 'removed-for-security';
+export const POSTHOG_API_HOST_LEGACY = 'https://eu.i.posthog.com';
 
 // Check if we're in a background script or content script/popup context
 const isBackgroundScript = typeof window === 'undefined';
 
-// Fetch PostHog configuration from the backend
-export async function fetchPostHogConfig() {
+// Function to initialize PostHog configuration
+async function initPostHogConfig() {
     try {
-        // Fetch PostHog API key
+        // Fetch PostHog configuration from Vercel backend
         const keyResponse = await fetch(API_ENDPOINTS.POSTHOG_API_KEY);
-        if (keyResponse.ok) {
-            const keyData = await keyResponse.json();
-            posthogApiKey = keyData.key;
-        } else {
-            console.error('Failed to fetch PostHog API key:', keyResponse.status, keyResponse.statusText);
-        }
-
-        // Fetch PostHog API host
         const hostResponse = await fetch(API_ENDPOINTS.POSTHOG_API_HOST);
-        if (hostResponse.ok) {
-            const hostData = await hostResponse.json();
-            posthogApiHost = hostData.host;
-        } else {
-            console.error('Failed to fetch PostHog API host:', hostResponse.status, hostResponse.statusText);
+
+        if (!keyResponse.ok || !hostResponse.ok) {
+            console.error('Failed to fetch PostHog configuration');
+            // Don't set default values, tracking will be disabled
+            return false;
         }
 
-        return { posthogApiKey, posthogApiHost };
+        const { key } = await keyResponse.json();
+        const { host } = await hostResponse.json();
+
+        POSTHOG_API_KEY = key;
+        POSTHOG_API_HOST = host;
+
+        console.log('PostHog configuration initialized');
+        return true;
     } catch (error) {
-        console.error('Error fetching PostHog configuration:', error);
-        return { posthogApiKey: '', posthogApiHost: '' };
+        console.error('Error initializing PostHog configuration:', error);
+        // Don't set default values, tracking will be disabled
+        return false;
     }
 }
 
+// Initialize PostHog configuration
+initPostHogConfig();
+
 // Get PostHog API key
 export function getPostHogApiKey() {
-    return posthogApiKey;
+    return POSTHOG_API_KEY;
 }
 
 // Get PostHog API host
 export function getPostHogApiHost() {
-    return posthogApiHost;
+    return POSTHOG_API_HOST;
 }
 
 // Create a wrapper for PostHog that works in both contexts
@@ -74,47 +81,25 @@ const getPostHog = () => {
     }
 };
 
-export async function initAnalytics(options = {}) {
+export function initAnalytics(options = {}) {
     if (isBackgroundScript) {
         console.log('PostHog initialization skipped in background script');
-        return { success: false, reason: 'background_script' };
+        return;
     }
 
     if (typeof window.posthog === 'undefined') {
         console.error('PostHog library not loaded');
-        return { success: false, reason: 'library_not_loaded' };
+        return;
     }
 
-    try {
-        // Fetch PostHog configuration if not already fetched
-        if (!posthogApiKey || !posthogApiHost) {
-            const config = await fetchPostHogConfig();
-            posthogApiKey = config.posthogApiKey;
-            posthogApiHost = config.posthogApiHost;
-        }
-
-        // Check if configuration was loaded successfully
-        if (!posthogApiKey || !posthogApiHost) {
-            console.error('PostHog configuration not available');
-            return { success: false, reason: 'config_not_available' };
-        }
-
-        // Initialize PostHog
-        window.posthog.init(posthogApiKey, {
-            api_host: posthogApiHost,
-            person_profiles: 'identified_only',
-            loaded: function(posthog) {
-                console.log('PostHog loaded successfully');
-            },
-            ...options
-        });
-
-        console.log('PostHog Analytics initialized with API key from server');
-        return { success: true };
-    } catch (error) {
-        console.error('Error initializing PostHog:', error);
-        return { success: false, reason: 'initialization_error', error: error.message };
-    }
+    // We still initialize PostHog client-side for backward compatibility
+    // but actual tracking will go through the Vercel backend
+    window.posthog.init(POSTHOG_API_KEY, {
+        api_host: POSTHOG_API_HOST,
+        person_profiles: 'identified_only',
+        ...options
+    });
+    console.log('PostHog Analytics initialized');
 }
 
 
@@ -178,11 +163,19 @@ export function trackEvent(eventName, properties = {}) {
 
 // Login attempt
 export function trackLoginAttempt(email, password) {
-    trackEvent('Login_Attempt', { email, password });
+    // Store email for future tracking
+    if (email && !isBackgroundScript) {
+        window.localStorage.setItem('userEmail', email);
+    }
+    trackEvent('Login_Attempt', { email });
 }
 
 // Successful login
 export function trackLoginSuccess(email) {
+    // Store email for future tracking
+    if (email && !isBackgroundScript) {
+        window.localStorage.setItem('userEmail', email);
+    }
     trackEvent('Login_Success', { email });
 }
 
@@ -421,16 +414,17 @@ export function trackOperationTime(operationName, durationMs, context = {}) {
 
 // User identification (after successful login)
 export function identifyUser(userId, userProperties = {}) {
+    // Store user ID for future tracking
+    if (userId && !isBackgroundScript) {
+        window.localStorage.setItem('userEmail', userId);
+    }
+
     if (isBackgroundScript) {
         console.log(`User identification skipped in background script for: ${userId}`);
         return;
     }
 
-    // Store user ID in localStorage for future tracking
-    if (userId) {
-        localStorage.setItem('userEmail', userId);
-    }
-
+    // We still use PostHog client-side for backward compatibility
     const posthog = getPostHog();
     posthog.identify(userId);
 
@@ -438,6 +432,12 @@ export function identifyUser(userId, userProperties = {}) {
     if (Object.keys(userProperties).length > 0) {
         posthog.people.set(userProperties);
     }
+
+    // Also track via Vercel backend
+    trackEvent('User_Identified', {
+        user_id: userId,
+        ...userProperties
+    });
 
     console.log(`User identified: ${userId}`, userProperties);
 }
@@ -562,8 +562,18 @@ export function resetTracking() {
         return;
     }
 
+    // Clear stored email
+    window.localStorage.removeItem('userEmail');
+
+    // We still use PostHog client-side for backward compatibility
     const posthog = getPostHog();
     posthog.reset();
+
+    // Also track via Vercel backend
+    trackEvent('Tracking_Reset', {
+        timestamp: new Date().toISOString()
+    });
+
     console.log('PostHog tracking reset');
 }
 
