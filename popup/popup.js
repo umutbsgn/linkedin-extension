@@ -197,8 +197,13 @@ document.addEventListener('DOMContentLoaded', async() => {
                 showUnauthenticatedUI();
             }
 
-            // Initialize analytics
-            initAnalytics();
+            // Initialize analytics (but don't fail if it doesn't work)
+            try {
+                initAnalytics();
+            } catch (analyticsError) {
+                console.error('Error initializing analytics:', analyticsError);
+                // Continue with the extension even if analytics fails
+            }
         } catch (error) {
             console.error('Error initializing extension:', error);
             showStatus('Error initializing extension: ' + error.message, 'error');
