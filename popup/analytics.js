@@ -11,22 +11,15 @@ const isBackgroundScript = typeof window === 'undefined';
 // Fetch PostHog configuration from the backend
 export async function fetchPostHogConfig() {
     try {
-        // Fetch PostHog API key
-        const keyResponse = await fetch(API_ENDPOINTS.POSTHOG_API_KEY);
-        if (keyResponse.ok) {
-            const keyData = await keyResponse.json();
-            posthogApiKey = keyData.key;
+        // Fetch PostHog configuration from consolidated endpoint
+        const configResponse = await fetch(API_ENDPOINTS.POSTHOG_CONFIG);
+        if (configResponse.ok) {
+            const configData = await configResponse.json();
+            posthogApiKey = configData.key;
+            posthogApiHost = configData.host;
+            console.log('PostHog configuration fetched successfully');
         } else {
-            console.error('Failed to fetch PostHog API key:', keyResponse.status, keyResponse.statusText);
-        }
-
-        // Fetch PostHog API host
-        const hostResponse = await fetch(API_ENDPOINTS.POSTHOG_API_HOST);
-        if (hostResponse.ok) {
-            const hostData = await hostResponse.json();
-            posthogApiHost = hostData.host;
-        } else {
-            console.error('Failed to fetch PostHog API host:', hostResponse.status, hostResponse.statusText);
+            console.error('Failed to fetch PostHog configuration:', configResponse.status, configResponse.statusText);
         }
 
         return { posthogApiKey, posthogApiHost };
