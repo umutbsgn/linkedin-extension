@@ -26,12 +26,15 @@ export const API_ENDPOINTS = {
     // Analytics
     TRACK: `${VERCEL_BACKEND_URL}/api/analytics/track`,
 
-    // PostHog Configuration - consolidated endpoint
-    POSTHOG_CONFIG: `${VERCEL_BACKEND_URL}/api/config/posthog`,
+    // Configuration endpoints - consolidated
+    CONFIG: `${VERCEL_BACKEND_URL}/api/config`,
+
+    // PostHog Configuration
+    POSTHOG_CONFIG: `${VERCEL_BACKEND_URL}/api/config?type=posthog`,
 
     // Stripe Configuration
-    STRIPE_PUBLISHABLE_KEY: `${VERCEL_BACKEND_URL}/api/config/stripe-publishable-key`,
-    STRIPE_PRICE_ID: `${VERCEL_BACKEND_URL}/api/config/stripe-price-id`,
+    STRIPE_PUBLISHABLE_KEY: `${VERCEL_BACKEND_URL}/api/config?type=stripe&field=publishable-key`,
+    STRIPE_PRICE_ID: `${VERCEL_BACKEND_URL}/api/config?type=stripe&field=price-id`,
 
     // Subscription Management
     SUBSCRIPTION_STATUS: `${VERCEL_BACKEND_URL}/api/subscriptions/status`,
