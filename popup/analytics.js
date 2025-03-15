@@ -94,7 +94,8 @@ export function initAnalytics(options = {}) {
 
     // Check if PostHog configuration is available
     if (!POSTHOG_API_KEY || !POSTHOG_API_HOST) {
-        console.error('PostHog configuration not available, tracking will be disabled');
+        console.warn('PostHog configuration not available, direct PostHog tracking will be disabled');
+        console.log('Events will still be tracked via Vercel backend');
         return;
     }
 
